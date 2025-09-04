@@ -97,7 +97,10 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
           <table className="border border-gray-300 min-w-full table-fixed">
             <tbody>
               {Array.from({ length: 5 }).map((_, rowIdx) => (
-                <tr key={rowIdx} style={{ minHeight: "3.2rem", height: "3.2rem" }}>
+                <tr
+                  key={rowIdx}
+                  style={{ minHeight: "3.2rem", height: "3.2rem" }}
+                >
                   {Array.from({ length: 2 }).map((_, colIdx) => {
                     const desc =
                       currentTab && currentTab.tabDescriptors
@@ -169,6 +172,11 @@ function AddAttributePanel({
   setAddingAttrMode: (mode: "select" | "form" | null) => void;
   onSave: () => void;
 }) {
+  // Debug output for addAttrDescriptors array
+  React.useEffect(() => {
+    console.log("AddAttributePanel addAttrDescriptors:", addAttrDescriptors);
+  }, [addAttrDescriptors]);
+
   // Render
   return (
     <>
@@ -226,6 +234,36 @@ function AddAttributePanel({
                       [desc.fieldName]: e.target.value,
                     })
                   }
+                />
+              ) : desc.inputType === "date" ? (
+                <input
+                  type="date"
+                  className="p-2 border rounded"
+                  value={(() => {
+                    // Convert DD/MM/YYYY to YYYY-MM-DD for input value
+                    const val = newAttrValues[desc.fieldName];
+                    if (val && val.includes("/")) {
+                      const [day, month, year] = val.split("/");
+                      if (day && month && year)
+                        return `${year}-${month.padStart(
+                          2,
+                          "0"
+                        )}-${day.padStart(2, "0")}`;
+                    }
+                    return val || "";
+                  })()}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    if (val) {
+                      // Convert YYYY-MM-DD to DD/MM/YYYY
+                      const [year, month, day] = val.split("-");
+                      val = `${day}/${month}/${year}`;
+                    }
+                    setNewAttrValues({
+                      ...newAttrValues,
+                      [desc.fieldName]: val,
+                    });
+                  }}
                 />
               ) : (
                 <input
@@ -332,7 +370,12 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
         `/property/api/attributeDescriptor?attributeId=${selectedNewAttrId}`
       );
       const descData = descRes.ok ? await descRes.json() : [];
-      setAddAttrDescriptors(descData);
+      // Add inputType to each descriptor
+      const withInputType = descData.map((desc: any) => ({
+        ...desc,
+        inputType: inferInputType(desc.fieldName),
+      }));
+      setAddAttrDescriptors(withInputType);
     }
     fetchNewAttrDescriptors();
   }, [addingAttrMode, selectedNewAttrId]);
@@ -402,6 +445,9 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
   useEffect(() => {
     console.log("attributeDescriptors:", attributeDescriptors);
   }, [attributeDescriptors]);
+  useEffect(() => {
+    console.log("addAttrDescriptors:", addAttrDescriptors);
+  }, [addAttrDescriptors]);
 
   // Save new attribute
   const handleSaveNewAttribute = async () => {
@@ -428,11 +474,22 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
       Boolean02: newAttrValues.Boolean02 ?? null,
       Boolean03: newAttrValues.Boolean03 ?? null,
     };
-    await fetch("/property/api/insertPropertyAttribute", {
+    const res = await fetch("/property/api/insertPropertyAttribute", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    if (res.ok && property?.PropertyID) {
+      // Refresh property attributes
+      const attrRes = await fetch(`/property/api/propertyAttributes?propertyId=${property.PropertyID}`);
+      const attrData = attrRes.ok ? await attrRes.json() : [];
+      setPropertyAttributes(attrData);
+      // Auto-select the newly added attribute
+      const newAttr = attrData.find((a: any) => a.AttributeID === payload.AttributeID);
+      if (newAttr) {
+        setSelectedAttrId(newAttr.ID);
+      }
+    }
     setShowAddAttribute(false);
     setSelectedNewAttrId(null);
     setAddingAttrMode(null);
@@ -442,6 +499,12 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
   // Main render
   return (
     <div className="mx-auto p-4 max-w-5xl">
+      <Link
+        href="/property"
+        className="block mb-4 font-semibold text-purple-700 hover:underline"
+      >
+        &larr; Back to Properties
+      </Link>
       <h1 className="mb-4 font-bold text-2xl">Property Details</h1>
       {/* 3-column property details table */}
       {property ? (
