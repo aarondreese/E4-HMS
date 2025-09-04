@@ -97,18 +97,17 @@ interface TabsPanelProps {
 
 // Clean TabsPanel component
 function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
-  // Group tabs by TabNumber
-  const tabs = Array.from(new Set(descriptors.map((d: any) => d.TabNumber))).sort((a: number, b: number) => a - b);
+  // Always show three tabs: 1, 2, 3
+  const tabs = [1, 2, 3];
   const tabData = tabs.map((tabNum: number) => {
-    const tabDescriptors = descriptors.filter((d: any) => d.TabNumber === tabNum);
-    const tabAttrs = attributes.filter((a: any) => a.TabNumber === tabNum);
-    return { tabNum, tabDescriptors, tabAttrs, hasData: tabAttrs.length > 0 };
+    const tabDescriptors = descriptors.filter(
+      (d: any) => d.TabNumber === tabNum
+    );
+    // Tab is enabled if there is at least one descriptor for this tab
+    return { tabNum, tabDescriptors, hasData: tabDescriptors.length > 0 };
   });
   // State for selected tab
-  const [selectedTab, setSelectedTab] = React.useState<number>(() => {
-    const firstWithData = tabData.find((t: any) => t.hasData);
-    return firstWithData ? firstWithData.tabNum : tabs[0] ?? 1;
-  });
+  const [selectedTab, setSelectedTab] = React.useState<number>(1);
   React.useEffect(() => {
     // If current tab has no data, switch to first tab with data
     const current = tabData.find((t: any) => t.tabNum === selectedTab);
@@ -116,36 +115,38 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
       const firstWithData = tabData.find((t: any) => t.hasData);
       if (firstWithData) setSelectedTab(firstWithData.tabNum);
     }
-  }, [attributes, descriptors]);
+  }, [selectedAttr, descriptors]);
 
   // Render
   return (
     <div className="mb-4">
       <div className="flex gap-2 mb-2">
-        {tabData.map(({ tabNum, hasData }: { tabNum: number; hasData: boolean }) => (
-          <button
-            key={String(tabNum)}
-            className={`px-4 py-2 rounded-t font-semibold border-b-2 focus:outline-none ${
-              selectedTab === tabNum
-                ? "bg-white border-blue-600 text-blue-700"
-                : hasData
+        {tabData.map(
+          ({ tabNum, hasData }: { tabNum: number; hasData: boolean }) => (
+            <button
+              key={String(tabNum)}
+              className={`px-4 py-2 rounded-t font-semibold border-b-2 focus:outline-none ${
+                selectedTab === tabNum
+                  ? "bg-white border-blue-600 text-blue-700"
+                  : hasData
                   ? "bg-gray-100 border-gray-300 text-gray-500"
                   : "bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed opacity-60"
-            }`}
-            onClick={() => hasData && setSelectedTab(tabNum)}
-            disabled={!hasData}
-            aria-disabled={!hasData}
-          >
-            Tab {String(tabNum)}
-          </button>
-        ))}
+              }`}
+              onClick={() => hasData && setSelectedTab(tabNum)}
+              disabled={!hasData}
+              aria-disabled={!hasData}
+            >
+              Tab {tabNum}
+            </button>
+          )
+        )}
       </div>
       {/* Tab content rendering */}
       {(() => {
         const currentTab = tabData.find((t: any) => t.tabNum === selectedTab);
-        if (!currentTab || !currentTab.hasData) {
-          return <div className="p-4 text-gray-400">No data for this tab.</div>;
-        }
+        // if (!currentTab || !currentTab.hasData) {
+        //   return <div className="p-4 text-gray-400">No data for this tab.</div>;
+        // }
         return (
           <table className="border border-gray-300 min-w-full table-fixed">
             <tbody>
@@ -153,11 +154,22 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                 <tr key={rowIdx} style={{ height: "3.2rem" }}>
                   {Array.from({ length: 2 }).map((_, colIdx) => {
                     const desc = currentTab.tabDescriptors.find(
-                      (d: any) => d.RowNumber === rowIdx + 1 && d.ColumnNumber === colIdx + 1
+                      (d: any) =>
+                        d.RowNumber === rowIdx + 1 &&
+                        d.ColumnNumber === colIdx + 1
                     );
-                    const attr = currentTab.tabAttrs.find(
-                      (a: any) => a.RowNumber === rowIdx + 1 && a.ColumnNumber === colIdx + 1
-                    );
+                    // Only show value if descriptor exists and selectedAttr has the field
+                    let value = "";
+                    if (
+                      desc &&
+                      selectedAttr &&
+                      desc.FieldName in selectedAttr
+                    ) {
+                      value = formatAttrValue(
+                        selectedAttr[desc.FieldName as keyof PropertyAttribute],
+                        desc.FieldName
+                      );
+                    }
                     return (
                       <td
                         key={colIdx}
@@ -166,9 +178,11 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                       >
                         {desc ? (
                           <div className="flex flex-col">
-                            <span className="mb-1 font-semibold">{desc.Label}</span>
+                            <span className="mb-1 font-semibold">
+                              {desc.Label}
+                            </span>
                             <span className="bg-gray-100 px-2 py-1 border rounded">
-                              {attr && desc.FieldName ? String(attr[desc.FieldName as keyof PropertyAttribute] ?? "") : ""}
+                              {value}
                             </span>
                           </div>
                         ) : null}
@@ -196,6 +210,7 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
   const [propertyAttributes, setPropertyAttributes] = useState<
     PropertyAttribute[]
   >([]);
+  const [attributeDescriptors, setAttributeDescriptors] = useState<any[]>([]);
   const [selectedAttrId, setSelectedAttrId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -217,7 +232,34 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
     fetchData();
   }, [id]);
 
-  const selectedAttr = propertyAttributes.find((attr) => attr.ID === selectedAttrId) ?? null;
+  const selectedAttr =
+    propertyAttributes.find((attr) => attr.ID === selectedAttrId) ?? null;
+
+  // Fetch descriptors for selected attribute
+  useEffect(() => {
+    async function fetchDescriptors() {
+      if (!selectedAttr) {
+        setAttributeDescriptors([]);
+        return;
+      }
+      try {
+        // Debug: log the attributeId being sent
+        console.log("Fetching descriptors for attributeId:", selectedAttr.ID);
+        const descRes = await fetch(
+          `/property/api/attributeDescriptor?attributeId=${selectedAttr.ID}`
+        );
+        // Debug: log the raw response
+        console.log("Descriptor API response status:", descRes.status);
+        const descData = descRes.ok ? await descRes.json() : [];
+        // Debug: log the data received
+        console.log("Descriptor API response data:", descData);
+        setAttributeDescriptors(descData);
+      } catch (err) {
+        console.error("Descriptor API fetch error:", err);
+      }
+    }
+    fetchDescriptors();
+  }, [selectedAttr]);
 
   // Main render
   return (
@@ -242,7 +284,8 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
           const col3 = boolKeys.map((k) => [
             k,
             property[k as keyof PropertyDetails],
-            k.replace(/^is/, "Is ")
+            k
+              .replace(/^is/, "Is ")
               .replace(/([A-Z])/g, " $1")
               .replace(/\bProp\b/, "Property")
               .replace(/\bCommunual\b/, "Communal")
@@ -317,9 +360,13 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
                           >
                             {col === col3 && typeof value === "boolean" ? (
                               value ? (
-                                <span className="font-bold text-green-600">&#10003;</span>
+                                <span className="font-bold text-green-600">
+                                  &#10003;
+                                </span>
                               ) : (
-                                <span className="font-bold text-red-600">&#10007;</span>
+                                <span className="font-bold text-red-600">
+                                  &#10007;
+                                </span>
                               )
                             ) : (
                               String(displayValue ?? "")
@@ -342,7 +389,9 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
         <div className="flex flex-row gap-8">
           <div className="min-w-0 basis-1/3">
             {propertyAttributes.length === 0 ? (
-              <div className="text-gray-500">No attributes assigned to this property.</div>
+              <div className="text-gray-500">
+                No attributes assigned to this property.
+              </div>
             ) : (
               <table className="border border-gray-300 min-w-full">
                 <thead>
@@ -367,9 +416,13 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
                       <td className="px-2 py-1 border">{attr.Name ?? ""}</td>
                       <td className="px-2 py-1 border text-center">
                         {attr.isActive ? (
-                          <span className="font-bold text-green-600">&#10003;</span>
+                          <span className="font-bold text-green-600">
+                            &#10003;
+                          </span>
                         ) : (
-                          <span className="font-bold text-red-600">&#10007;</span>
+                          <span className="font-bold text-red-600">
+                            &#10007;
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -381,15 +434,32 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
           <div className="bg-gray-50 p-4 border rounded min-h-[180px] basis-2/3">
             {selectedAttr ? (
               <>
-                <h3 className="mb-2 font-semibold text-lg">Attribute Details</h3>
+                <h3 className="mb-2 font-semibold text-lg">
+                  Attribute Details
+                </h3>
+                {/* Debug Panel */}
+                <div className="bg-yellow-50 mb-4 p-2 border border-yellow-300 rounded text-xs">
+                  <div className="mb-1 font-bold">Debug: selectedAttr</div>
+                  <pre className="overflow-x-auto whitespace-pre-wrap">
+                    {JSON.stringify(selectedAttr, null, 2)}
+                  </pre>
+                  <div className="mt-2 mb-1 font-bold">
+                    Debug: AttributeDescriptor
+                  </div>
+                  <pre className="overflow-x-auto whitespace-pre-wrap">
+                    {JSON.stringify(attributeDescriptors, null, 2)}
+                  </pre>
+                </div>
                 <TabsPanel
                   attributes={propertyAttributes}
-                  descriptors={[]}
+                  descriptors={attributeDescriptors}
                   selectedAttr={selectedAttr}
                 />
               </>
             ) : (
-              <div className="text-gray-500">Select an attribute to view details.</div>
+              <div className="text-gray-500">
+                Select an attribute to view details.
+              </div>
             )}
           </div>
         </div>

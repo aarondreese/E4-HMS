@@ -16,6 +16,9 @@ const config = {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const attributeId = searchParams.get('attributeId');
+  // Debug: log config and attributeId
+  console.log('MSSQL config:', { user: config.user, server: config.server, database: config.database });
+  console.log('attributeId:', attributeId);
   if (!attributeId) {
     return NextResponse.json([], { status: 200 });
   }
@@ -26,23 +29,28 @@ export async function GET(request: Request) {
     const result = await pool.request()
       .input('attributeId', sql.Int, Number(attributeId))
       .query(`
-        SELECT FieldName, Label, Tab, Row, Col
+        SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber
         FROM AttributeDescriptor
         WHERE AttributeID = @attributeId
-        ORDER BY Tab, Row, Col
+        ORDER BY TabNumber, RowNumber, ColumnNumber
       `);
     await pool.close();
     // Map to expected shape for frontend
     const descriptors = result.recordset.map((row: any) => ({
+      id: row.ID,
+      attributeId: row.AttributeID,
       fieldName: row.FieldName,
       label: row.Label,
-      tab: Number(row.Tab),
-      row: Number(row.Row),
-      col: Number(row.Col),
+      tab: Number(row.TabNumber),
+      row: Number(row.RowNumber),
+      col: Number(row.ColumnNumber),
     }));
+    console.log('Descriptor query result:', descriptors);
     return NextResponse.json(descriptors);
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
+    // Debug: log error stack
+    console.error('Descriptor API error:', error);
     return NextResponse.json({ error: errMsg }, { status: 500 });
   }
 }
