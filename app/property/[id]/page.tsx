@@ -198,6 +198,50 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
 }
 
 const PropertyPage = ({ params }: PropertyPageProps) => {
+  // Add Attribute panel state
+  const [showAddAttribute, setShowAddAttribute] = useState(false);
+  const [availableAttributes, setAvailableAttributes] = useState<any[]>([]);
+  const [selectedNewAttrId, setSelectedNewAttrId] = useState<string | null>(null);
+  const [addAttrDescriptors, setAddAttrDescriptors] = useState<any[]>([]);
+  const [newAttrValues, setNewAttrValues] = useState<{ [field: string]: string }>({});
+  const [addAttrSelectedTab, setAddAttrSelectedTab] = useState(1);
+  const [addingAttrMode, setAddingAttrMode] = useState<'select' | 'form' | null>(null);
+
+  // Helper: infer input type from field name
+  function inferInputType(fieldName: string) {
+    if (/date/i.test(fieldName)) return "date";
+    if (/email/i.test(fieldName)) return "email";
+    if (/phone|tel/i.test(fieldName)) return "tel";
+    if (/number|qty|amount|count|id$/i.test(fieldName)) return "number";
+    if (/desc|note|comment/i.test(fieldName)) return "textarea";
+    return "text";
+  }
+
+  // Show Add Attribute panel and fetch available attributes
+  const handleShowAddAttribute = async () => {
+    setShowAddAttribute(true);
+    setAddingAttrMode('select');
+    setSelectedNewAttrId(null);
+    setNewAttrValues({});
+    setAddAttrSelectedTab(1);
+    const res = await fetch("/Attribute/api");
+    const data = res.ok ? await res.json() : [];
+    setAvailableAttributes(data.filter((a: any) => a.isActive === 1));
+  };
+
+  // Fetch descriptors for selected new attribute
+  useEffect(() => {
+    async function fetchNewAttrDescriptors() {
+      if (addingAttrMode !== "form" || !selectedNewAttrId) {
+        setAddAttrDescriptors([]);
+        return;
+      }
+      const descRes = await fetch(`/property/api/attributeDescriptor?attributeId=${selectedNewAttrId}`);
+      const descData = descRes.ok ? await descRes.json() : [];
+      setAddAttrDescriptors(descData);
+    }
+    fetchNewAttrDescriptors();
+  }, [addingAttrMode, selectedNewAttrId]);
   const id =
     Array.isArray(params.id) && params.id.length > 0
       ? params.id[0]
@@ -383,13 +427,20 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
         <div className="mb-4">Loading property details...</div>
       )}
       <div className="mb-6">
-        <h2 className="mb-2 font-semibold text-lg">Property Attributes</h2>
+        <div className="flex items-center mb-2">
+          <h2 className="mr-4 font-semibold text-lg">Property Attributes</h2>
+          <button
+            type="button"
+            className="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded font-semibold text-white transition"
+            onClick={handleShowAddAttribute}
+          >
+            + Add Attribute
+          </button>
+        </div>
         <div className="flex flex-row gap-8">
           <div className="min-w-0 basis-1/3">
             {propertyAttributes.length === 0 ? (
-              <div className="text-gray-500">
-                No attributes assigned to this property.
-              </div>
+              <div className="text-gray-500">No attributes assigned to this property.</div>
             ) : (
               <table className="border border-gray-300 min-w-full">
                 <thead>
@@ -403,24 +454,16 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
                   {propertyAttributes.map((attr) => (
                     <tr
                       key={attr.ID}
-                      className={
-                        selectedAttrId === attr.ID
-                          ? "bg-blue-100 cursor-pointer"
-                          : "cursor-pointer"
-                      }
+                      className={selectedAttrId === attr.ID ? "bg-blue-100 cursor-pointer" : "cursor-pointer"}
                       onClick={() => setSelectedAttrId(attr.ID)}
                     >
                       <td className="px-2 py-1 border">{attr.ID}</td>
                       <td className="px-2 py-1 border">{attr.Name ?? ""}</td>
                       <td className="px-2 py-1 border text-center">
                         {attr.isActive ? (
-                          <span className="font-bold text-green-600">
-                            &#10003;
-                          </span>
+                          <span className="font-bold text-green-600">&#10003;</span>
                         ) : (
-                          <span className="font-bold text-red-600">
-                            &#10007;
-                          </span>
+                          <span className="font-bold text-red-600">&#10007;</span>
                         )}
                       </td>
                     </tr>
@@ -430,11 +473,122 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
             )}
           </div>
           <div className="bg-gray-50 p-4 border rounded min-h-[180px] basis-2/3">
-            {selectedAttr ? (
+            {showAddAttribute ? (
+              <div className="mb-4">
+                <h3 className="mb-2 font-semibold text-lg">Add Attribute</h3>
+                {addingAttrMode !== "form" ? (
+                  <>
+                    {availableAttributes.length === 0 ? (
+                      <div className="text-gray-500">No available attributes.</div>
+                    ) : (
+                      <select
+                        className="mb-2 p-2 border rounded w-full"
+                        value={selectedNewAttrId || ""}
+                        onChange={(e) => setSelectedNewAttrId(e.target.value)}
+                      >
+                        <option value="" disabled>Select an attribute...</option>
+                        {availableAttributes.map((attr) => (
+                          <option key={attr.ID} value={attr.ID}>{attr.Name}</option>
+                        ))}
+                      </select>
+                    )}
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        type="button"
+                        className="bg-gray-300 hover:bg-gray-400 px-3 py-1 rounded font-semibold text-gray-700 transition"
+                        onClick={() => {
+                          setShowAddAttribute(false);
+                          setSelectedNewAttrId(null);
+                          setAddingAttrMode(null);
+                          setNewAttrValues({});
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className={`px-3 py-1 rounded bg-purple-600 text-white font-semibold transition ${selectedNewAttrId ? "hover:bg-purple-700" : "opacity-50 cursor-not-allowed"}`}
+                        disabled={!selectedNewAttrId}
+                        onClick={() => {
+                          setAddingAttrMode("form");
+                        }}
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Tabbed panel for new attribute fields */}
+                    <div className="mb-2">
+                      {[1, 2, 3].map((tabNum) => {
+                        const tabFields = addAttrDescriptors.filter((d: any) => d.tab === tabNum);
+                        const tabComplete = tabFields.length > 0 && tabFields.every((desc: any) => newAttrValues[desc.fieldName] !== undefined && newAttrValues[desc.fieldName] !== "");
+                        return (
+                          <button
+                            key={tabNum}
+                            className={`px-4 py-2 rounded-t font-semibold border-b-2 focus:outline-none mr-2 ${addAttrSelectedTab === tabNum ? "bg-white border-blue-600 text-blue-700" : tabFields.length > 0 ? "bg-gray-100 border-gray-300 text-gray-500" : "bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed opacity-60"}`}
+                            onClick={() => tabFields.length > 0 && setAddAttrSelectedTab(tabNum)}
+                            disabled={tabFields.length === 0}
+                            aria-disabled={tabFields.length === 0}
+                            style={{ borderColor: tabFields.length === 0 ? "#444" : tabComplete ? "green" : "red" }}
+                          >
+                            Tab {tabNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="gap-2 grid grid-cols-2">
+                      {addAttrDescriptors.filter((d: any) => d.tab === addAttrSelectedTab).map((desc: any) => (
+                        <div key={desc.fieldName} className="flex flex-col mb-2">
+                          <label className="mb-1 font-medium text-sm">{desc.label}</label>
+                          {inferInputType(desc.fieldName) === "textarea" ? (
+                            <textarea
+                              className="p-2 border rounded"
+                              value={newAttrValues[desc.fieldName] || ""}
+                              onChange={(e) => setNewAttrValues((v) => ({ ...v, [desc.fieldName]: e.target.value }))}
+                            />
+                          ) : (
+                            <input
+                              type={inferInputType(desc.fieldName)}
+                              className="p-2 border rounded"
+                              value={newAttrValues[desc.fieldName] || ""}
+                              onChange={(e) => setNewAttrValues((v) => ({ ...v, [desc.fieldName]: e.target.value }))}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        type="button"
+                        className="bg-gray-300 hover:bg-gray-400 px-3 py-1 rounded font-semibold text-gray-700 transition"
+                        onClick={() => {
+                          setShowAddAttribute(false);
+                          setSelectedNewAttrId(null);
+                          setAddingAttrMode(null);
+                          setNewAttrValues({});
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className={`px-3 py-1 rounded bg-green-600 text-white font-semibold transition ${addAttrDescriptors.length > 0 && addAttrDescriptors.every((desc: any) => newAttrValues[desc.fieldName] !== undefined && newAttrValues[desc.fieldName] !== "") ? "hover:bg-green-700" : "opacity-50 cursor-not-allowed"}`}
+                        disabled={!(addAttrDescriptors.length > 0 && addAttrDescriptors.every((desc: any) => newAttrValues[desc.fieldName] !== undefined && newAttrValues[desc.fieldName] !== ""))}
+                        onClick={() => {
+                          // Save logic here
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : selectedAttr ? (
               <>
-                <h3 className="mb-2 font-semibold text-lg">
-                  Attribute Details
-                </h3>
+                <h3 className="mb-2 font-semibold text-lg">Attribute Details</h3>
                 <TabsPanel
                   attributes={propertyAttributes}
                   descriptors={attributeDescriptors}
@@ -442,9 +596,7 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
                 />
               </>
             ) : (
-              <div className="text-gray-500">
-                Select an attribute to view details.
-              </div>
+              <div className="text-gray-500">Select an attribute to view details.</div>
             )}
           </div>
         </div>
