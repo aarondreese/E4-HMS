@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const result = await pool.request()
       .input('propertyId', sql.Int, Number(propertyId))
       .query(`
-  SELECT pa.ID, pa.ROWSTAMP, pa.PropertyID, pa.isActive, pa.String01, pa.String02, pa.String03,
+  SELECT pa.ID, pa.ROWSTAMP, pa.PropertyID, pa.AttributeID, pa.isActive, pa.String01, pa.String02, pa.String03,
   pa.Date01, pa.Date02, pa.Date03, pa.Int01, pa.Int02, pa.Int03, pa.Decimal01, pa.Decimal02, pa.Decimal03,
   pa.Lookup01, pa.Lookup02, pa.Lookup03, pa.Boolean01, pa.Boolean02, pa.Boolean03, a.Name
   FROM PropertyAttribute pa

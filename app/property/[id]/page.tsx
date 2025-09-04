@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
+import { PropertyAttribute } from "@/lib/propertyAttribute";
+import { PropertyDetails } from "@/lib/propertyDetails";
 
 function formatAttrValue(value: any, key: string) {
   if (value && typeof value === "object") {
@@ -30,57 +32,6 @@ function formatAttrValue(value: any, key: string) {
     );
   }
   return value ?? "";
-}
-
-interface PropertyDetails {
-  PropertyID: number;
-  PropertyTypeID: number;
-  AddressID: number;
-  PropIsVirtual: boolean;
-  TakeOnDate: string;
-  DisposedDate: string | null;
-  DisposalMethod: number | null;
-  AddressLine1: string;
-  AddressLine2: string | null;
-  AddressLine3: string | null;
-  PostCode: string | null;
-  UPRN: string | null;
-  TypeName: string;
-  isBlock: boolean;
-  isDwelling: boolean;
-  isLettable: boolean;
-  isCommunual: boolean;
-  isVirtual: boolean;
-  isUtility: boolean;
-  isPrivate: boolean;
-  TakeonType: string;
-}
-
-export interface PropertyAttribute {
-  ID: number;
-  ROWSTAMP: string;
-  PropertyID: number;
-  isActive: number;
-  Name?: string;
-  Type?: string;
-  String01?: string;
-  String02?: string;
-  String03?: string;
-  Date01?: string;
-  Date02?: string;
-  Date03?: string;
-  Int01?: number;
-  Int02?: number;
-  Int03?: number;
-  Decimal01?: number;
-  Decimal02?: number;
-  Decimal03?: number;
-  Lookup01?: number;
-  Lookup02?: number;
-  Lookup03?: number;
-  Boolean01?: number;
-  Boolean02?: number;
-  Boolean03?: number;
 }
 
 type PropertyPageProps = {
@@ -127,7 +78,7 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                 selectedTab === tabNum
                   ? "bg-white border-blue-600 text-blue-700"
                   : hasData
-                  ? "bg-gray-100 border-gray-300 text-gray-500"
+                  ? "bg-purple-50 border-purple-200 text-purple-700"
                   : "bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed opacity-60"
               }`}
               onClick={() => hasData && setSelectedTab(tabNum)}
@@ -146,7 +97,7 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
           <table className="border border-gray-300 min-w-full table-fixed">
             <tbody>
               {Array.from({ length: 5 }).map((_, rowIdx) => (
-                <tr key={rowIdx} style={{ height: "3.2rem" }}>
+                <tr key={rowIdx} style={{ minHeight: "3.2rem", height: "3.2rem" }}>
                   {Array.from({ length: 2 }).map((_, colIdx) => {
                     const desc =
                       currentTab && currentTab.tabDescriptors
@@ -170,7 +121,7 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                       <td
                         key={colIdx}
                         className="px-2 py-1 border align-middle"
-                        style={{ verticalAlign: "middle" }}
+                        style={{ width: "50%" }}
                       >
                         {desc ? (
                           <div className="flex flex-col">
@@ -237,7 +188,7 @@ function AddAttributePanel({
                 addAttrSelectedTab === tabNum
                   ? "bg-white border-blue-600 text-blue-700"
                   : tabFields.length > 0
-                  ? "bg-gray-100 border-gray-300 text-gray-500"
+                  ? "bg-purple-50 border-purple-200 text-purple-700"
                   : "bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed opacity-60"
               }`}
               onClick={() =>
@@ -423,21 +374,19 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
   // Fetch descriptors for selected attribute
   useEffect(() => {
     async function fetchDescriptors() {
-      if (!selectedAttr) {
+      if (!selectedAttr || !selectedAttr.AttributeID) {
         setAttributeDescriptors([]);
         return;
       }
       try {
-        // Debug: log the attributeId being sent
-        //console.log("Fetching descriptors for attributeId:", selectedAttr.ID);
-        const descRes = await fetch(
-          `/property/api/attributeDescriptor?attributeId=${selectedAttr.ID}`
+        console.log(
+          "Fetching descriptors for attributeId:",
+          selectedAttr.AttributeID
         );
-        // Debug: log the raw response
-        console.log("Descriptor API response status:", descRes.status);
+        const descRes = await fetch(
+          `/property/api/attributeDescriptor?attributeId=${selectedAttr.AttributeID}`
+        );
         const descData = descRes.ok ? await descRes.json() : [];
-        // Debug: log the data received
-        //console.log("Descriptor API response data:", descData);
         setAttributeDescriptors(descData);
       } catch (err) {
         console.error("Descriptor API fetch error:", err);
@@ -445,6 +394,14 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
     }
     fetchDescriptors();
   }, [selectedAttr]);
+
+  // Debug output for selectedAttr and attributeDescriptors
+  useEffect(() => {
+    console.log("selectedAttr:", selectedAttr);
+  }, [selectedAttr]);
+  useEffect(() => {
+    console.log("attributeDescriptors:", attributeDescriptors);
+  }, [attributeDescriptors]);
 
   // Save new attribute
   const handleSaveNewAttribute = async () => {
