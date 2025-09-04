@@ -100,9 +100,7 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
   // Always show three tabs: 1, 2, 3
   const tabs = [1, 2, 3];
   const tabData = tabs.map((tabNum: number) => {
-    const tabDescriptors = descriptors.filter(
-      (d: any) => d.TabNumber === tabNum
-    );
+    const tabDescriptors = descriptors.filter((d: any) => d.tab === tabNum);
     // Tab is enabled if there is at least one descriptor for this tab
     return { tabNum, tabDescriptors, hasData: tabDescriptors.length > 0 };
   });
@@ -144,30 +142,28 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
       {/* Tab content rendering */}
       {(() => {
         const currentTab = tabData.find((t: any) => t.tabNum === selectedTab);
-        // if (!currentTab || !currentTab.hasData) {
-        //   return <div className="p-4 text-gray-400">No data for this tab.</div>;
-        // }
         return (
           <table className="border border-gray-300 min-w-full table-fixed">
             <tbody>
               {Array.from({ length: 5 }).map((_, rowIdx) => (
                 <tr key={rowIdx} style={{ height: "3.2rem" }}>
                   {Array.from({ length: 2 }).map((_, colIdx) => {
-                    const desc = currentTab.tabDescriptors.find(
-                      (d: any) =>
-                        d.RowNumber === rowIdx + 1 &&
-                        d.ColumnNumber === colIdx + 1
-                    );
-                    // Only show value if descriptor exists and selectedAttr has the field
+                    const desc =
+                      currentTab && currentTab.tabDescriptors
+                        ? currentTab.tabDescriptors.find(
+                            (d: any) =>
+                              d.row === rowIdx + 1 && d.col === colIdx + 1
+                          )
+                        : undefined;
                     let value = "";
                     if (
                       desc &&
                       selectedAttr &&
-                      desc.FieldName in selectedAttr
+                      desc.fieldName in selectedAttr
                     ) {
                       value = formatAttrValue(
-                        selectedAttr[desc.FieldName as keyof PropertyAttribute],
-                        desc.FieldName
+                        selectedAttr[desc.fieldName as keyof PropertyAttribute],
+                        desc.fieldName
                       );
                     }
                     return (
@@ -179,13 +175,15 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                         {desc ? (
                           <div className="flex flex-col">
                             <span className="mb-1 font-semibold">
-                              {desc.Label}
+                              {desc.label}
                             </span>
                             <span className="bg-gray-100 px-2 py-1 border rounded">
                               {value}
                             </span>
                           </div>
-                        ) : null}
+                        ) : (
+                          <span className="text-gray-300">&nbsp;</span>
+                        )}
                       </td>
                     );
                   })}
@@ -244,7 +242,7 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
       }
       try {
         // Debug: log the attributeId being sent
-        console.log("Fetching descriptors for attributeId:", selectedAttr.ID);
+        //console.log("Fetching descriptors for attributeId:", selectedAttr.ID);
         const descRes = await fetch(
           `/property/api/attributeDescriptor?attributeId=${selectedAttr.ID}`
         );
@@ -252,7 +250,7 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
         console.log("Descriptor API response status:", descRes.status);
         const descData = descRes.ok ? await descRes.json() : [];
         // Debug: log the data received
-        console.log("Descriptor API response data:", descData);
+        //console.log("Descriptor API response data:", descData);
         setAttributeDescriptors(descData);
       } catch (err) {
         console.error("Descriptor API fetch error:", err);
@@ -437,19 +435,6 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
                 <h3 className="mb-2 font-semibold text-lg">
                   Attribute Details
                 </h3>
-                {/* Debug Panel */}
-                <div className="bg-yellow-50 mb-4 p-2 border border-yellow-300 rounded text-xs">
-                  <div className="mb-1 font-bold">Debug: selectedAttr</div>
-                  <pre className="overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(selectedAttr, null, 2)}
-                  </pre>
-                  <div className="mt-2 mb-1 font-bold">
-                    Debug: AttributeDescriptor
-                  </div>
-                  <pre className="overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(attributeDescriptors, null, 2)}
-                  </pre>
-                </div>
                 <TabsPanel
                   attributes={propertyAttributes}
                   descriptors={attributeDescriptors}
