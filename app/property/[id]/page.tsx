@@ -474,22 +474,11 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
       Boolean02: newAttrValues.Boolean02 ?? null,
       Boolean03: newAttrValues.Boolean03 ?? null,
     };
-    const res = await fetch("/property/api/insertPropertyAttribute", {
+    await fetch("/property/api/insertPropertyAttribute", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (res.ok && property?.PropertyID) {
-      // Refresh property attributes
-      const attrRes = await fetch(`/property/api/propertyAttributes?propertyId=${property.PropertyID}`);
-      const attrData = attrRes.ok ? await attrRes.json() : [];
-      setPropertyAttributes(attrData);
-      // Auto-select the newly added attribute
-      const newAttr = attrData.find((a: any) => a.AttributeID === payload.AttributeID);
-      if (newAttr) {
-        setSelectedAttrId(newAttr.ID);
-      }
-    }
     setShowAddAttribute(false);
     setSelectedNewAttrId(null);
     setAddingAttrMode(null);
