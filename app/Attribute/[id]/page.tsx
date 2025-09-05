@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useDrag, useDrop, DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
+import { LookupGroup } from "@/lib/lookupGroup";
 
 interface Attribute {
   ID: number;
@@ -41,6 +42,8 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
   const [newFields, setNewFields] = useState<
     { tab: number; row: number; col: number; field: string }[]
   >([]);
+  const [lookupGroups, setLookupGroups] = useState<LookupGroup[]>([]);
+  const [selectedLookupGroupId, setSelectedLookupGroupId] = useState<number | null>(null);
 
   const handleRemoveField = (
     tab: number,
@@ -71,6 +74,16 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
       )
     );
   };
+
+  useEffect(() => {
+    // Fetch active LookupGroups
+    fetch("/lookup/api/lookupGroup")
+      .then((res) => res.json())
+      .then((data) => setLookupGroups(data.filter((g: LookupGroup) => g.isActive)));
+  }, []);
+
+  // In AttributeDetailPage, after fetching lookupGroups, create a map for fast lookup
+  const lookupGroupMap = Object.fromEntries(lookupGroups.map(g => [g.ID, g.Name]));
 
   // Drop target for empty grid cells
   const GridCell = ({ rowNum, colNum }: { rowNum: number; colNum: number }) => {
@@ -120,18 +133,31 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
     // Handle label save
     const handleLabelSave = () => {
       setDescriptors((prev) =>
-        prev.map((d) =>
-          d.TabNumber === editingCell?.tab &&
-          d.RowNumber === editingCell?.row &&
-          d.ColumnNumber === editingCell?.col &&
-          d.FieldName === editingCell?.field
-            ? { ...d, Label: labelInput }
-            : d
-        )
+        prev.map((d) => {
+          if (
+            d.TabNumber === editingCell?.tab &&
+            d.RowNumber === editingCell?.row &&
+            d.ColumnNumber === editingCell?.col &&
+            d.FieldName === editingCell?.field
+          ) {
+            // If Lookup field, also save LookupGroupID
+            if (isLookupField(d.FieldName)) {
+              return { ...d, Label: labelInput, LookupGroupID: selectedLookupGroupId };
+            }
+            return { ...d, Label: labelInput };
+          }
+          return d;
+        })
       );
       setEditingCell(null);
       setLabelInput("");
+      setSelectedLookupGroupId(null);
     };
+
+    // Helper to detect if a field is a Lookup field
+    function isLookupField(field: string) {
+      return /lookup/i.test(field); // or use type info if available
+    }
 
     return (
       <td
@@ -166,6 +192,24 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
               autoFocus
               placeholder="Enter label"
             />
+            {/* If Lookup field, show LookupGroup dropdown */}
+            {isLookupField(editingCell.field) && (
+              <select
+                className="border rounded px-2 py-1 ml-2"
+                value={selectedLookupGroupId ?? ""}
+                onChange={(e) => setSelectedLookupGroupId(Number(e.target.value))}
+                required
+              >
+                <option value="" disabled>
+                  Select Lookup Group
+                </option>
+                {lookupGroups.map((g) => (
+                  <option key={g.ID} value={g.ID}>
+                    {g.Name}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="submit"
               className="bg-blue-500 px-2 py-1 rounded text-white"
@@ -190,6 +234,10 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
               {cell.Label
                 ? `${cell.Label} (${cell.FieldName})`
                 : `( ${cell.FieldName} )`}
+              {/* If lookup field and LookupGroupID, show group name */}
+              {isLookupField(cell.FieldName) && cell.LookupGroupID && lookupGroupMap[cell.LookupGroupID] && (
+                <span className="ml-1 text-xs text-purple-700">[ {lookupGroupMap[cell.LookupGroupID]} ]</span>
+              )}
             </span>
             {newCell && (
               <button

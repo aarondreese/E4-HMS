@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   }
   try {
     const result = await query(
-      `SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber FROM AttributeDescriptor WHERE AttributeID = @id`,
+      `SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber, LookupGroupID FROM AttributeDescriptor WHERE AttributeID = @id`,
       [{ name: 'id', value: parseInt(id) }]
     );
     return NextResponse.json(result.recordset);
@@ -28,14 +28,17 @@ export async function POST(request: NextRequest) {
   try {
     const pool = await getConnection();
     for (const record of body) {
-      await pool.request()
+      const req = pool.request()
         .input('AttributeID', record.AttributeID)
         .input('TabNumber', record.TabNumber)
         .input('RowNumber', record.RowNumber)
         .input('ColumnNumber', record.ColumnNumber)
         .input('FieldName', record.FieldName)
-        .input('Label', record.Label)
-        .execute('usp_InsertAttributeDescriptor');
+        .input('Label', record.Label);
+      if (record.LookupGroupID !== undefined) {
+        req.input('LookupGroupID', record.LookupGroupID);
+      }
+      await req.execute('usp_InsertAttributeDescriptor');
     }
     return NextResponse.json({ success: true });
   } catch (error) {
