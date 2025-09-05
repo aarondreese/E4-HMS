@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     const result = await pool.request()
       .input('attributeId', sql.Int, Number(attributeId))
       .query(`
-        SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber
+        SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber, LookupGroupID
         FROM AttributeDescriptor
         WHERE AttributeID = @attributeId
         ORDER BY TabNumber, RowNumber, ColumnNumber
@@ -44,6 +44,7 @@ export async function GET(request: Request) {
       tab: Number(row.TabNumber),
       row: Number(row.RowNumber),
       col: Number(row.ColumnNumber),
+      lookupGroupId: row.LookupGroupID ?? undefined,
     }));
     console.log('Descriptor query result:', descriptors);
     return NextResponse.json(descriptors);

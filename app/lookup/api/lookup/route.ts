@@ -12,10 +12,13 @@ const config = {
   },
 };
 
+// Add debug logs to GET handler
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const groupId = searchParams.get('groupId');
+  console.log('[Lookup API] GET called with groupId:', groupId);
   if (!groupId) {
+    console.log('[Lookup API] Missing groupId');
     return NextResponse.json({ error: 'Missing groupId' }, { status: 400 });
   }
   try {
@@ -24,8 +27,10 @@ export async function GET(request: Request) {
       .input('groupId', sql.Int, Number(groupId))
       .query('SELECT * FROM Lookup WHERE LookupGroupID = @groupId');
     await pool.close();
+    console.log('[Lookup API] DB result:', result.recordset);
     return NextResponse.json(result.recordset);
   } catch (error) {
+    console.error('[Lookup API] Error:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

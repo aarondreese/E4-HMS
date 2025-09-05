@@ -3,6 +3,8 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { PropertyAttribute } from "@/lib/propertyAttribute";
 import { PropertyDetails } from "@/lib/propertyDetails";
+import { Lookup } from "../../../lib/lookup";
+import { LookupGroup } from "../../../lib/lookupGroup";
 
 function formatAttrValue(value: any, key: string) {
   if (value && typeof value === "object") {
@@ -161,6 +163,7 @@ function AddAttributePanel({
   setSelectedNewAttrId,
   setAddingAttrMode,
   onSave,
+  lookupRecords,
 }: {
   addAttrDescriptors: any[];
   addAttrSelectedTab: number;
@@ -171,6 +174,7 @@ function AddAttributePanel({
   setSelectedNewAttrId: (id: string | null) => void;
   setAddingAttrMode: (mode: "select" | "form" | null) => void;
   onSave: () => void;
+  lookupRecords: Record<number, Lookup[]>;
 }) {
   // Debug output for addAttrDescriptors array
   React.useEffect(() => {
@@ -231,7 +235,24 @@ function AddAttributePanel({
               <label className="block text-sm font-medium mb-1">
                 {desc.label}
               </label>
-              {desc.inputType === "date" ? (
+              {desc.fieldName.includes("Lookup") ? (
+                <select
+                  className="p-2 border rounded"
+                  value={newAttrValues[desc.fieldName] || ""}
+                  onChange={(e) =>
+                    setNewAttrValues({
+                      ...newAttrValues,
+                      [desc.fieldName]: e.target.value,
+                    })
+                  }
+                >
+                  {lookupRecords[desc.lookupGroupId]?.map((lookup: Lookup) => (
+                    <option key={lookup.ID} value={lookup.ID}>
+                      {lookup.Value}
+                    </option>
+                  ))}
+                </select>
+              ) : desc.inputType === "date" ? (
                 <input
                   type="date"
                   className="p-2 border rounded"
@@ -330,6 +351,13 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
   const [addingAttrMode, setAddingAttrMode] = useState<
     "select" | "form" | null
   >(null);
+
+  // Refine state initialization and data fetching logic
+  const [lookupRecords, setLookupRecords] = useState<Record<number, Lookup[]>>(
+    {}
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Helper: infer input type from field name
   function inferInputType(fieldName: string) {
@@ -478,6 +506,50 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
     setAddingAttrMode(null);
     setNewAttrValues({});
   };
+
+  // Fetch lookup data dynamically (replace with actual API call)
+  useEffect(() => {
+    const fetchLookupRecords = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        // Only fetch for descriptors that have a lookupGroupId
+        const groupIds = Array.from(
+          new Set(
+            addAttrDescriptors
+              .filter((desc) => desc.lookupGroupId)
+              .map((desc) => desc.lookupGroupId)
+          )
+        );
+
+        const groupedRecords: Record<number, Lookup[]> = {};
+        for (const groupId of groupIds) {
+          const response = await fetch(`/lookup/api/lookup?groupId=${groupId}`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch lookups for groupId ${groupId}`);
+          }
+          const data: Lookup[] = await response.json();
+          groupedRecords[groupId] = data;
+        }
+
+        setLookupRecords(groupedRecords);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An unknown error occurred");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLookupRecords();
+  }, [addAttrDescriptors]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
 
   // Main render
   return (
@@ -731,6 +803,7 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
                       setSelectedNewAttrId={setSelectedNewAttrId}
                       setAddingAttrMode={setAddingAttrMode}
                       onSave={handleSaveNewAttribute}
+                      lookupRecords={lookupRecords}
                     />
                   </>
                 )}
