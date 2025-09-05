@@ -47,19 +47,44 @@ interface TabsPanelProps {
 }
 
 // Clean TabsPanel component
+import { LookupGroup } from "@/lib/lookupGroup";
+import { Lookup } from "@/lib/lookup";
+
 function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
-  // Always show three tabs: 1, 2, 3
   const tabs = [1, 2, 3];
   const tabData = tabs.map((tabNum: number) => {
     const tabDescriptors = descriptors.filter((d: any) => d.tab === tabNum);
-    // Tab is enabled if there is at least one descriptor for this tab
     return { tabNum, tabDescriptors, hasData: tabDescriptors.length > 0 };
   });
-  console.info("tabData:", tabData);
-  // State for selected tab
   const [selectedTab, setSelectedTab] = React.useState<number>(1);
+  const [lookupGroups, setLookupGroups] = React.useState<LookupGroup[]>([]);
+  const [lookups, setLookups] = React.useState<Lookup[]>([]);
+
   React.useEffect(() => {
-    // If current tab has no data, switch to first tab with data
+    fetch("/lookup/api/lookupGroup")
+      .then((res) => res.json())
+      .then((data) => setLookupGroups(data.filter((g: LookupGroup) => g.isActive)));
+  }, []);
+
+  React.useEffect(() => {
+    // Fetch all lookups for all groups
+    if (lookupGroups.length > 0) {
+      Promise.all(
+        lookupGroups.map((g) =>
+          fetch(`/lookup/api/lookup?groupId=${g.ID}`)
+            .then((res) => res.json())
+            .then((data) => data as Lookup[])
+        )
+      ).then((allLookups) => setLookups(allLookups.flat()));
+    }
+  }, [lookupGroups]);
+
+  const lookupGroupMap = Object.fromEntries(lookupGroups.map((g) => [g.ID, g.Name]));
+  const lookupValueMap = Object.fromEntries(
+    lookups.map((l) => [l.ID, l.Value])
+  );
+
+  React.useEffect(() => {
     const current = tabData.find((t: any) => t.tabNum === selectedTab);
     if (!current?.hasData) {
       const firstWithData = tabData.find((t: any) => t.hasData);
@@ -67,7 +92,10 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
     }
   }, [selectedAttr, descriptors, selectedTab, tabData]);
 
-  // Render
+  function isLookupField(field: string) {
+    return /lookup/i.test(field);
+  }
+
   return (
     <div className="mb-4">
       <div className="flex gap-2 mb-2">
@@ -116,10 +144,17 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                       selectedAttr &&
                       desc.fieldName in selectedAttr
                     ) {
-                      value = formatAttrValue(
-                        selectedAttr[desc.fieldName as keyof PropertyAttribute],
-                        desc.fieldName
-                      );
+                      // If lookup field, show value and group name together
+                      if (isLookupField(desc.fieldName)) {
+                        const lookupId = selectedAttr[desc.fieldName as keyof PropertyAttribute] as number | undefined;
+                        const lookupValue = lookupId ? lookupValueMap[lookupId] : undefined;
+                        value = lookupValue ?? "";
+                      } else {
+                        value = formatAttrValue(
+                          selectedAttr[desc.fieldName as keyof PropertyAttribute],
+                          desc.fieldName
+                        );
+                      }
                     }
                     return (
                       <td
@@ -387,9 +422,9 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
       ? params.id
       : undefined;
   const [property, setProperty] = useState<PropertyDetails | null>(null);
-  const [propertyAttributes, setPropertyAttributes] = useState<
-    PropertyAttribute[]
-  >([]);
+  const [propertyAttributes, setPropertyAttributes] = useState<PropertyAttribute[]>([]);
+  const [parentProperties, setParentProperties] = useState<PropertyDetails[]>([]);
+  const [childProperties, setChildProperties] = useState<PropertyDetails[]>([]);
   const [attributeDescriptors, setAttributeDescriptors] = useState<any[]>([]);
   const [selectedAttrId, setSelectedAttrId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -406,6 +441,22 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
         );
         const attrData = attrRes.ok ? await attrRes.json() : [];
         setPropertyAttributes(attrData);
+        // Fetch parent property
+        const parentRes = await fetch(`/property/api/getParentProperty?propertyId=${propData.PropertyID}`);
+        if (parentRes.ok) {
+          const parents = await parentRes.json();
+          setParentProperties(parents || []);
+        } else {
+          setParentProperties([]);
+        }
+        // Fetch child properties
+        const childRes = await fetch(`/property/api/getChildProperties?propertyId=${propData.PropertyID}`);
+        if (childRes.ok) {
+          const children = await childRes.json();
+          setChildProperties(children || []);
+        } else {
+          setChildProperties([]);
+        }
       }
       setLoading(false);
     }
@@ -498,120 +549,172 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
       <h1 className="mb-4 font-bold text-2xl">Property Details</h1>
       {/* 3-column property details table */}
       {property ? (
-        (() => {
-          // ...existing code for 3-column details...
-          const col1 = [
-            ["PropertyID", property.PropertyID, "Property ID"],
-            ["AddressLine1", property.AddressLine1, "Address Line 1"],
-            ["AddressLine2", property.AddressLine2, "Address Line 2"],
-            ["AddressLine3", property.AddressLine3, "Address Line 3"],
-            ["PostCode", property.PostCode, "Postcode"],
-            ["UPRN", property.UPRN, "UPRN"],
-            ["TypeName", property.TypeName, "Property Type"],
-          ];
-          const boolKeys = Object.keys(property).filter(
-            (k) => typeof property[k as keyof PropertyDetails] === "boolean"
-          );
-          const col3 = boolKeys.map((k) => [
-            k,
-            property[k as keyof PropertyDetails],
-            k
-              .replace(/^is/, "Is ")
-              .replace(/([A-Z])/g, " $1")
-              .replace(/\bProp\b/, "Property")
-              .replace(/\bCommunual\b/, "Communal")
-              .replace(/\bDwelling\b/, "Dwelling")
-              .replace(/\bLettable\b/, "Lettable")
-              .replace(/\bUtility\b/, "Utility")
-              .replace(/\bPrivate\b/, "Private")
-              .replace(/\bBlock\b/, "Block")
-              .replace(/\bVirtual\b/, "Virtual")
-              .replace(/\s+/, " ")
-              .trim(),
-          ]);
-          const col1Keys = col1.map(([k]) => k);
-          const col3Keys = boolKeys;
-          const col2 = Object.entries(property)
-            .filter(([k, v]) => !col1Keys.includes(k) && !col3Keys.includes(k))
-            .map(([k, v]) => [
+        <>
+          {(() => {
+            // ...existing code for 3-column details...
+            const col1 = [
+              ["PropertyID", property.PropertyID, "Property ID"],
+              ["AddressLine1", property.AddressLine1, "Address Line 1"],
+              ["AddressLine2", property.AddressLine2, "Address Line 2"],
+              ["AddressLine3", property.AddressLine3, "Address Line 3"],
+              ["PostCode", property.PostCode, "Postcode"],
+              ["UPRN", property.UPRN, "UPRN"],
+              ["TypeName", property.TypeName, "Property Type"],
+            ];
+            const boolKeys = Object.keys(property).filter(
+              (k) => typeof property[k as keyof PropertyDetails] === "boolean"
+            );
+            const col3 = boolKeys.map((k) => [
               k,
-              v,
+              property[k as keyof PropertyDetails],
               k
+                .replace(/^is/, "Is ")
                 .replace(/([A-Z])/g, " $1")
-                .replace(/^./, (s) => s.toUpperCase())
-                .replace(/\bID\b/, "ID")
+                .replace(/\bProp\b/, "Property")
+                .replace(/\bCommunual\b/, "Communal")
+                .replace(/\bDwelling\b/, "Dwelling")
+                .replace(/\bLettable\b/, "Lettable")
+                .replace(/\bUtility\b/, "Utility")
+                .replace(/\bPrivate\b/, "Private")
+                .replace(/\bBlock\b/, "Block")
+                .replace(/\bVirtual\b/, "Virtual")
+                .replace(/\s+/, " ")
                 .trim(),
             ]);
-          // Pad columns to equal length
-          const maxLen = Math.max(col1.length, col2.length, col3.length);
-          while (col1.length < maxLen) col1.push(["", "", ""]);
-          while (col2.length < maxLen) col2.push(["", "", ""]);
-          while (col3.length < maxLen) col3.push(["", "", ""]);
-          return (
-            <div className="flex flex-row gap-10 mb-4 w-full">
-              {[col1, col2, col3].map((col, idx) => (
-                <table
-                  key={idx}
-                  className="border border-gray-300 w-full table-fixed"
-                  style={{ minWidth: 0, flex: 1 }}
-                >
-                  <tbody>
-                    {col.map(([key, value, label], i) => {
-                      let displayValue = value;
-                      if (key === "TakeOnDate" && value) {
-                        const d = new Date(value as string);
-                        if (!isNaN(d.getTime())) {
-                          displayValue = d.toLocaleDateString("en-GB");
-                        } else {
-                          displayValue = String(value).slice(0, 10);
+            const col1Keys = col1.map(([k]) => k);
+            const col3Keys = boolKeys;
+            const col2 = Object.entries(property)
+              .filter(([k, v]) => !col1Keys.includes(k) && !col3Keys.includes(k))
+              .map(([k, v]) => [
+                k,
+                v,
+                k
+                  .replace(/([A-Z])/g, " $1")
+                  .replace(/^./, (s) => s.toUpperCase())
+                  .replace(/\bID\b/, "ID")
+                  .trim(),
+              ]);
+            // Pad columns to equal length
+            const maxLen = Math.max(col1.length, col2.length, col3.length);
+            while (col1.length < maxLen) col1.push(["", "", ""]);
+            while (col2.length < maxLen) col2.push(["", "", ""]);
+            while (col3.length < maxLen) col3.push(["", "", ""]);
+            return (
+              <div className="flex flex-row gap-10 mb-4 w-full">
+                {[col1, col2, col3].map((col, idx) => (
+                  <table
+                    key={idx}
+                    className="border border-gray-300 w-full table-fixed"
+                    style={{ minWidth: 0, flex: 1 }}
+                  >
+                    <tbody>
+                      {col.map(([key, value, label], i) => {
+                        let displayValue = value;
+                        if (key === "TakeOnDate" && value) {
+                          const d = new Date(value as string);
+                          if (!isNaN(d.getTime())) {
+                            displayValue = d.toLocaleDateString("en-GB");
+                          } else {
+                            displayValue = String(value).slice(0, 10);
+                          }
                         }
-                      }
-                      return (
-                        <tr key={i} style={{ height: "3.2rem" }}>
-                          <td
-                            className="px-2 py-1 border font-semibold align-middle"
-                            style={{
-                              width: "180px",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {label}
-                          </td>
-                          <td
-                            className="px-2 py-1 border align-middle"
-                            style={{
-                              width: col === col3 ? "40px" : "220px",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              textAlign: col === col3 ? "center" : undefined,
-                            }}
-                          >
-                            {col === col3 && typeof value === "boolean" ? (
-                              value ? (
-                                <span className="font-bold text-green-600">
-                                  &#10003;
-                                </span>
+                        return (
+                          <tr key={i} style={{ height: "3.2rem" }}>
+                            <td
+                              className="px-2 py-1 border font-semibold align-middle"
+                              style={{
+                                width: "180px",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {label}
+                            </td>
+                            <td
+                              className="px-2 py-1 border align-middle"
+                              style={{
+                                width: col === col3 ? "40px" : "220px",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                textAlign: col === col3 ? "center" : undefined,
+                              }}
+                            >
+                              {col === col3 && typeof value === "boolean" ? (
+                                value ? (
+                                  <span className="font-bold text-green-600">
+                                    &#10003;
+                                  </span>
+                                ) : (
+                                  <span className="font-bold text-red-600">
+                                    &#10007;
+                                  </span>
+                                )
                               ) : (
-                                <span className="font-bold text-red-600">
-                                  &#10007;
-                                </span>
-                              )
-                            ) : (
-                              String(displayValue ?? "")
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              ))}
-            </div>
-          );
-        })()
+                                String(displayValue ?? "")
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Hierarchy Section */}
+          <div className="mb-6">
+            <h2 className="font-semibold text-lg mb-2">Hierarchy</h2>
+            {(parentProperties.length === 0 && childProperties.length === 0) ? (
+              <div className="text-gray-500">No parent or child properties.</div>
+            ) : (
+              <table className="border border-gray-300 min-w-full">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-1 border">ID</th>
+                    <th className="px-2 py-1 border">Address</th>
+                    <th className="px-2 py-1 border">Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parentProperties.map((p) => (
+                    <tr key={"parent-" + p.PropertyID} className="bg-green-50">
+                      <td className="px-2 py-1 border">
+                        <Link href={`/property/${p.PropertyID}`} className="text-green-700 font-bold underline">
+                          {p.PropertyID}
+                        </Link>
+                      </td>
+                      <td className="px-2 py-1 border">
+                        <Link href={`/property/${p.PropertyID}`} className="text-green-700 font-bold underline">
+                          {p.AddressLine1}
+                        </Link>
+                      </td>
+                      <td className="px-2 py-1 border text-green-700 font-bold">{p.TypeName}</td>
+                    </tr>
+                  ))}
+                  {childProperties.map((p) => (
+                    <tr key={"child-" + p.PropertyID}>
+                      <td className="px-2 py-1 border">
+                        <Link href={`/property/${p.PropertyID}`} className="text-black underline">
+                          {p.PropertyID}
+                        </Link>
+                      </td>
+                      <td className="px-2 py-1 border">
+                        <Link href={`/property/${p.PropertyID}`} className="text-black underline">
+                          {p.AddressLine1}
+                        </Link>
+                      </td>
+                      <td className="px-2 py-1 border">{p.TypeName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
       ) : (
         <div className="mb-4">Loading property details...</div>
       )}
