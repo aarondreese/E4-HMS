@@ -117,10 +117,25 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                       selectedAttr &&
                       desc.fieldName in selectedAttr
                     ) {
-                      value = formatAttrValue(
-                        selectedAttr[desc.fieldName as keyof PropertyAttribute],
-                        desc.fieldName
-                      );
+                      if (
+                        desc.fieldName.includes("Lookup") &&
+                        selectedAttr[desc.fieldName as keyof PropertyAttribute] !==
+                          undefined &&
+                        selectedAttr[desc.fieldName as keyof PropertyAttribute] !==
+                          null &&
+                        !isNaN(
+                          Number(selectedAttr[desc.fieldName as keyof PropertyAttribute])
+                        )
+                      ) {
+                        value = (
+                          <AsyncLookupValue lookupId={Number(selectedAttr[desc.fieldName as keyof PropertyAttribute])} />
+                        );
+                      } else {
+                        value = formatAttrValue(
+                          selectedAttr[desc.fieldName as keyof PropertyAttribute],
+                          desc.fieldName
+                        );
+                      }
                     }
                     return (
                       <td
@@ -134,7 +149,15 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                               {desc.label}
                             </span>
                             <span className="bg-gray-100 px-2 py-1 border rounded">
-                              {value}
+                              {desc && selectedAttr && desc.fieldName in selectedAttr ? (
+                                desc.fieldName.includes("Lookup") && selectedAttr[desc.fieldName as keyof PropertyAttribute] ? (
+                                  <AsyncLookupValue lookupId={selectedAttr[desc.fieldName as keyof PropertyAttribute] as number} />
+                                ) : (
+                                  formatAttrValue(selectedAttr[desc.fieldName as keyof PropertyAttribute], desc.fieldName)
+                                )
+                              ) : (
+                                ""
+                              )}
                             </span>
                           </div>
                         ) : (
@@ -334,6 +357,30 @@ function AddAttributePanel({
       </div>
     </>
   );
+}
+
+// Update fetchLookupValue to use the new GetByID endpoint
+async function fetchLookupValue(lookupId: number): Promise<string | number> {
+  try {
+    const response = await fetch(`/lookup/api/lookup/GetByID?id=${lookupId}`);
+    if (!response.ok) return lookupId;
+    const data = await response.json();
+    if (Array.isArray(data) && data.length > 0 && data[0].Value) {
+      return data[0].Value;
+    }
+    return lookupId;
+  } catch {
+    return lookupId;
+  }
+}
+
+// Component to display a lookup value asynchronously
+function AsyncLookupValue({ lookupId }: { lookupId: number }) {
+  const [value, setValue] = React.useState<string | number>(lookupId);
+  React.useEffect(() => {
+    fetchLookupValue(lookupId).then(setValue);
+  }, [lookupId]);
+  return <>{value}</>;
 }
 
 const PropertyPage = ({ params }: PropertyPageProps) => {
