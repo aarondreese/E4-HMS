@@ -218,29 +218,24 @@ function AddAttributePanel({
           );
         })}
       </div>
-      <div className="gap-2 grid grid-cols-2">
+      {/* Modify the rendering logic to honor row and col properties for grid placement */}
+      <div className="grid grid-cols-2 gap-4">
         {addAttrDescriptors
-          .filter((d) => d.tab === addAttrSelectedTab)
+          .filter((desc) => desc.tab === addAttrSelectedTab)
           .map((desc) => (
-            <div key={desc.fieldName} className="flex flex-col mb-2">
-              <label className="mb-1 font-medium text-sm">{desc.label}</label>
-              {desc.inputType === "textarea" ? (
-                <textarea
-                  className="p-2 border rounded"
-                  value={newAttrValues[desc.fieldName] || ""}
-                  onChange={(e) =>
-                    setNewAttrValues({
-                      ...newAttrValues,
-                      [desc.fieldName]: e.target.value,
-                    })
-                  }
-                />
-              ) : desc.inputType === "date" ? (
+            <div
+              key={desc.fieldName}
+              className="col-span-1"
+              style={{ gridRow: desc.row, gridColumn: desc.col }}
+            >
+              <label className="block text-sm font-medium mb-1">
+                {desc.label}
+              </label>
+              {desc.inputType === "date" ? (
                 <input
                   type="date"
                   className="p-2 border rounded"
                   value={(() => {
-                    // Convert DD/MM/YYYY to YYYY-MM-DD for input value
                     const val = newAttrValues[desc.fieldName];
                     if (val && val.includes("/")) {
                       const [day, month, year] = val.split("/");
@@ -255,7 +250,6 @@ function AddAttributePanel({
                   onChange={(e) => {
                     let val = e.target.value;
                     if (val) {
-                      // Convert YYYY-MM-DD to DD/MM/YYYY
                       const [year, month, day] = val.split("-");
                       val = `${day}/${month}/${year}`;
                     }
