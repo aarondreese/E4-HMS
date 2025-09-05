@@ -23,6 +23,12 @@ export default function Home() {
         >
           Attribute Groups
         </a>
+        <a
+          href="/lookup"
+          className="bg-pink-600 hover:bg-pink-700 shadow px-6 py-4 rounded text-white text-lg text-center"
+        >
+          Lookups
+        </a>
       </div>
     </main>
   );
