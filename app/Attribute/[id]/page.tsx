@@ -43,7 +43,9 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
     { tab: number; row: number; col: number; field: string }[]
   >([]);
   const [lookupGroups, setLookupGroups] = useState<LookupGroup[]>([]);
-  const [selectedLookupGroupId, setSelectedLookupGroupId] = useState<number | null>(null);
+  const [selectedLookupGroupId, setSelectedLookupGroupId] = useState<
+    number | null
+  >(null);
 
   const handleRemoveField = (
     tab: number,
@@ -79,11 +81,15 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
     // Fetch active LookupGroups
     fetch("/lookup/api/lookupGroup")
       .then((res) => res.json())
-      .then((data) => setLookupGroups(data.filter((g: LookupGroup) => g.isActive)));
+      .then((data) =>
+        setLookupGroups(data.filter((g: LookupGroup) => g.isActive))
+      );
   }, []);
 
   // In AttributeDetailPage, after fetching lookupGroups, create a map for fast lookup
-  const lookupGroupMap = Object.fromEntries(lookupGroups.map(g => [g.ID, g.Name]));
+  const lookupGroupMap = Object.fromEntries(
+    lookupGroups.map((g) => [g.ID, g.Name])
+  );
 
   // Drop target for empty grid cells
   const GridCell = ({ rowNum, colNum }: { rowNum: number; colNum: number }) => {
@@ -142,7 +148,11 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
           ) {
             // If Lookup field, also save LookupGroupID
             if (isLookupField(d.FieldName)) {
-              return { ...d, Label: labelInput, LookupGroupID: selectedLookupGroupId };
+              return {
+                ...d,
+                Label: labelInput,
+                LookupGroupID: selectedLookupGroupId,
+              };
             }
             return { ...d, Label: labelInput };
           }
@@ -195,9 +205,11 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
             {/* If Lookup field, show LookupGroup dropdown */}
             {isLookupField(editingCell.field) && (
               <select
-                className="border rounded px-2 py-1 ml-2"
+                className="ml-2 px-2 py-1 border rounded"
                 value={selectedLookupGroupId ?? ""}
-                onChange={(e) => setSelectedLookupGroupId(Number(e.target.value))}
+                onChange={(e) =>
+                  setSelectedLookupGroupId(Number(e.target.value))
+                }
                 required
               >
                 <option value="" disabled>
@@ -235,9 +247,13 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
                 ? `${cell.Label} (${cell.FieldName})`
                 : `( ${cell.FieldName} )`}
               {/* If lookup field and LookupGroupID, show group name */}
-              {isLookupField(cell.FieldName) && cell.LookupGroupID && lookupGroupMap[cell.LookupGroupID] && (
-                <span className="ml-1 text-xs text-purple-700">[ {lookupGroupMap[cell.LookupGroupID]} ]</span>
-              )}
+              {isLookupField(cell.FieldName) &&
+                cell.LookupGroupID &&
+                lookupGroupMap[cell.LookupGroupID] && (
+                  <span className="ml-1 text-purple-700 text-xs">
+                    [ {lookupGroupMap[cell.LookupGroupID]} ]
+                  </span>
+                )}
             </span>
             {newCell && (
               <button
@@ -258,6 +274,18 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
             )}
           </span>
         ) : null}
+        {/* Debug: log lookup info for each populated cell */}
+        {cell && (() => {
+          if (isLookupField(cell.FieldName)) {
+            console.debug("Lookup cell:", {
+              FieldName: cell.FieldName,
+              LookupGroupID: cell.LookupGroupID,
+              GroupName: lookupGroupMap[cell.LookupGroupID],
+              Descriptor: cell,
+            });
+          }
+          return null;
+        })()}
       </td>
     );
   };
@@ -315,6 +343,11 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
       .then((res) => res.json())
       .then((data) => setDescriptors(data));
   }, [params.id]);
+
+  // Debug: log the descriptors array that populates the grid
+  useEffect(() => {
+    console.log("Grid descriptors:", descriptors);
+  }, [descriptors]);
 
   // Save newly added fields to backend
   const handleSaveUpdates = async () => {

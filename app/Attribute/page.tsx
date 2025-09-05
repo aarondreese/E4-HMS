@@ -1,25 +1,34 @@
-'use client';
+"use client";
 import Link from "next/link";
 import { Attribute } from "@/lib/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-async function getAttributes(): Promise<Attribute[]> {
-  const res = await fetch("http://localhost:3000/Attribute/api", {
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error("Failed to fetch attributes");
-  return res.json();
-}
+function AttributePage() {
+  const [attributes, setAttributes] = useState<Attribute[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const router = useRouter();
 
-const AttributePage = async () => {
-  let attributes: Attribute[] = [];
-  try {
-    attributes = await getAttributes();
-  } catch (e) {
-    return <div>Error loading attributes.</div>;
-  }
-  // Add client-side form for new attribute
+  useEffect(() => {
+    async function fetchAttributes() {
+      try {
+        const res = await fetch("/Attribute/api", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch attributes");
+        const data = await res.json();
+        setAttributes(data);
+      } catch (e) {
+        setError("Error loading attributes.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchAttributes();
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;
+
   return (
     <main className="flex flex-col justify-center items-center p-24 min-h-screen">
       <h1 className="mb-8 font-bold text-2xl">Attributes</h1>
@@ -56,7 +65,7 @@ const AttributePage = async () => {
       </div>
     </main>
   );
-};
+}
 
 function NewAttributeForm() {
   const [name, setName] = useState("");
@@ -89,10 +98,13 @@ function NewAttributeForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-8 flex flex-col items-center gap-2">
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col items-center gap-2 mb-8"
+    >
       <label className="font-semibold">Add New Attribute</label>
       <input
-        className="border p-1 rounded min-w-[200px]"
+        className="p-1 border rounded min-w-[200px]"
         placeholder="Attribute Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -100,12 +112,12 @@ function NewAttributeForm() {
       />
       <button
         type="submit"
-        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1 rounded font-semibold"
+        className="bg-purple-600 hover:bg-purple-700 px-4 py-1 rounded font-semibold text-white"
         disabled={loading || !name.trim()}
       >
         {loading ? "Saving..." : "Add Attribute"}
       </button>
-      {error && <div className="text-red-600 text-sm mt-1">{error}</div>}
+      {error && <div className="mt-1 text-red-600 text-sm">{error}</div>}
     </form>
   );
 }

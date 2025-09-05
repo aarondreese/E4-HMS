@@ -3,8 +3,6 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { PropertyAttribute } from "@/lib/propertyAttribute";
 import { PropertyDetails } from "@/lib/propertyDetails";
-import { Lookup } from "../../../lib/lookup";
-import { LookupGroup } from "../../../lib/lookupGroup";
 
 function formatAttrValue(value: any, key: string) {
   if (value && typeof value === "object") {
@@ -57,6 +55,7 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
     // Tab is enabled if there is at least one descriptor for this tab
     return { tabNum, tabDescriptors, hasData: tabDescriptors.length > 0 };
   });
+  console.info("tabData:", tabData);
   // State for selected tab
   const [selectedTab, setSelectedTab] = React.useState<number>(1);
   React.useEffect(() => {
@@ -117,25 +116,10 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                       selectedAttr &&
                       desc.fieldName in selectedAttr
                     ) {
-                      if (
-                        desc.fieldName.includes("Lookup") &&
-                        selectedAttr[desc.fieldName as keyof PropertyAttribute] !==
-                          undefined &&
-                        selectedAttr[desc.fieldName as keyof PropertyAttribute] !==
-                          null &&
-                        !isNaN(
-                          Number(selectedAttr[desc.fieldName as keyof PropertyAttribute])
-                        )
-                      ) {
-                        value = (
-                          <AsyncLookupValue lookupId={Number(selectedAttr[desc.fieldName as keyof PropertyAttribute])} />
-                        );
-                      } else {
-                        value = formatAttrValue(
-                          selectedAttr[desc.fieldName as keyof PropertyAttribute],
-                          desc.fieldName
-                        );
-                      }
+                      value = formatAttrValue(
+                        selectedAttr[desc.fieldName as keyof PropertyAttribute],
+                        desc.fieldName
+                      );
                     }
                     return (
                       <td
@@ -149,15 +133,7 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                               {desc.label}
                             </span>
                             <span className="bg-gray-100 px-2 py-1 border rounded">
-                              {desc && selectedAttr && desc.fieldName in selectedAttr ? (
-                                desc.fieldName.includes("Lookup") && selectedAttr[desc.fieldName as keyof PropertyAttribute] ? (
-                                  <AsyncLookupValue lookupId={selectedAttr[desc.fieldName as keyof PropertyAttribute] as number} />
-                                ) : (
-                                  formatAttrValue(selectedAttr[desc.fieldName as keyof PropertyAttribute], desc.fieldName)
-                                )
-                              ) : (
-                                ""
-                              )}
+                              {value}
                             </span>
                           </div>
                         ) : (
@@ -186,7 +162,6 @@ function AddAttributePanel({
   setSelectedNewAttrId,
   setAddingAttrMode,
   onSave,
-  lookupRecords,
 }: {
   addAttrDescriptors: any[];
   addAttrSelectedTab: number;
@@ -197,7 +172,6 @@ function AddAttributePanel({
   setSelectedNewAttrId: (id: string | null) => void;
   setAddingAttrMode: (mode: "select" | "form" | null) => void;
   onSave: () => void;
-  lookupRecords: Record<number, Lookup[]>;
 }) {
   // Debug output for addAttrDescriptors array
   React.useEffect(() => {
@@ -245,21 +219,14 @@ function AddAttributePanel({
           );
         })}
       </div>
-      {/* Modify the rendering logic to honor row and col properties for grid placement */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="gap-2 grid grid-cols-2">
         {addAttrDescriptors
-          .filter((desc) => desc.tab === addAttrSelectedTab)
+          .filter((d) => d.tab === addAttrSelectedTab)
           .map((desc) => (
-            <div
-              key={desc.fieldName}
-              className="col-span-1"
-              style={{ gridRow: desc.row, gridColumn: desc.col }}
-            >
-              <label className="block text-sm font-medium mb-1">
-                {desc.label}
-              </label>
-              {desc.fieldName.includes("Lookup") ? (
-                <select
+            <div key={desc.fieldName} className="flex flex-col mb-2">
+              <label className="mb-1 font-medium text-sm">{desc.label}</label>
+              {desc.inputType === "textarea" ? (
+                <textarea
                   className="p-2 border rounded"
                   value={newAttrValues[desc.fieldName] || ""}
                   onChange={(e) =>
@@ -268,18 +235,13 @@ function AddAttributePanel({
                       [desc.fieldName]: e.target.value,
                     })
                   }
-                >
-                  {lookupRecords[desc.lookupGroupId]?.map((lookup: Lookup) => (
-                    <option key={lookup.ID} value={lookup.ID}>
-                      {lookup.Value}
-                    </option>
-                  ))}
-                </select>
+                />
               ) : desc.inputType === "date" ? (
                 <input
                   type="date"
                   className="p-2 border rounded"
                   value={(() => {
+                    // Convert DD/MM/YYYY to YYYY-MM-DD for input value
                     const val = newAttrValues[desc.fieldName];
                     if (val && val.includes("/")) {
                       const [day, month, year] = val.split("/");
@@ -294,6 +256,7 @@ function AddAttributePanel({
                   onChange={(e) => {
                     let val = e.target.value;
                     if (val) {
+                      // Convert YYYY-MM-DD to DD/MM/YYYY
                       const [year, month, day] = val.split("-");
                       val = `${day}/${month}/${year}`;
                     }
@@ -359,30 +322,6 @@ function AddAttributePanel({
   );
 }
 
-// Update fetchLookupValue to use the new GetByID endpoint
-async function fetchLookupValue(lookupId: number): Promise<string | number> {
-  try {
-    const response = await fetch(`/lookup/api/lookup/GetByID?id=${lookupId}`);
-    if (!response.ok) return lookupId;
-    const data = await response.json();
-    if (Array.isArray(data) && data.length > 0 && data[0].Value) {
-      return data[0].Value;
-    }
-    return lookupId;
-  } catch {
-    return lookupId;
-  }
-}
-
-// Component to display a lookup value asynchronously
-function AsyncLookupValue({ lookupId }: { lookupId: number }) {
-  const [value, setValue] = React.useState<string | number>(lookupId);
-  React.useEffect(() => {
-    fetchLookupValue(lookupId).then(setValue);
-  }, [lookupId]);
-  return <>{value}</>;
-}
-
 const PropertyPage = ({ params }: PropertyPageProps) => {
   // Add Attribute panel state
   const [showAddAttribute, setShowAddAttribute] = useState(false);
@@ -398,13 +337,6 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
   const [addingAttrMode, setAddingAttrMode] = useState<
     "select" | "form" | null
   >(null);
-
-  // Refine state initialization and data fetching logic
-  const [lookupRecords, setLookupRecords] = useState<Record<number, Lookup[]>>(
-    {}
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Helper: infer input type from field name
   function inferInputType(fieldName: string) {
@@ -553,50 +485,6 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
     setAddingAttrMode(null);
     setNewAttrValues({});
   };
-
-  // Fetch lookup data dynamically (replace with actual API call)
-  useEffect(() => {
-    const fetchLookupRecords = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Only fetch for descriptors that have a lookupGroupId
-        const groupIds = Array.from(
-          new Set(
-            addAttrDescriptors
-              .filter((desc) => desc.lookupGroupId)
-              .map((desc) => desc.lookupGroupId)
-          )
-        );
-
-        const groupedRecords: Record<number, Lookup[]> = {};
-        for (const groupId of groupIds) {
-          const response = await fetch(`/lookup/api/lookup?groupId=${groupId}`);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch lookups for groupId ${groupId}`);
-          }
-          const data: Lookup[] = await response.json();
-          groupedRecords[groupId] = data;
-        }
-
-        setLookupRecords(groupedRecords);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An unknown error occurred");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLookupRecords();
-  }, [addAttrDescriptors]);
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
 
   // Main render
   return (
@@ -850,7 +738,6 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
                       setSelectedNewAttrId={setSelectedNewAttrId}
                       setAddingAttrMode={setAddingAttrMode}
                       onSave={handleSaveNewAttribute}
-                      lookupRecords={lookupRecords}
                     />
                   </>
                 )}

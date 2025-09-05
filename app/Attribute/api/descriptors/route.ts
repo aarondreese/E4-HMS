@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   }
   try {
     const result = await query(
-      `SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber FROM AttributeDescriptor WHERE AttributeID = @id`,
+      `SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber, LookupGroupID FROM AttributeDescriptor WHERE AttributeID = @id`,
       [{ name: 'id', value: parseInt(id) }]
     );
     return NextResponse.json(result.recordset);
@@ -21,13 +21,16 @@ export async function GET(request: NextRequest) {
 
 // POST: Insert AttributeDescriptor records
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  if (!Array.isArray(body)) {
-    return NextResponse.json({ error: 'Payload must be an array' }, { status: 400 });
-  }
   try {
+    const body = await request.json();
+    console.log('[AttributeDescriptor POST] Payload:', body);
+    if (!Array.isArray(body)) {
+      console.error('[AttributeDescriptor POST] Payload is not an array');
+      return NextResponse.json({ error: 'Payload must be an array' }, { status: 400 });
+    }
     const pool = await getConnection();
     for (const record of body) {
+      console.log('[AttributeDescriptor POST] Inserting record:', record);
       await pool.request()
         .input('AttributeID', record.AttributeID)
         .input('TabNumber', record.TabNumber)
@@ -35,10 +38,12 @@ export async function POST(request: NextRequest) {
         .input('ColumnNumber', record.ColumnNumber)
         .input('FieldName', record.FieldName)
         .input('Label', record.Label)
+        .input('LookupGroupID', record.LookupGroupID ?? null)
         .execute('usp_InsertAttributeDescriptor');
     }
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('[AttributeDescriptor POST] Error:', error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
