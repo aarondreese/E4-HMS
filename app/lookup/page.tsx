@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useEffect, useState } from "react";
 import { LookupGroup } from "@/lib/lookupGroup";
@@ -10,9 +10,17 @@ export default function LookupManager() {
   const [selectedGroup, setSelectedGroup] = useState<LookupGroup | null>(null);
   const [lookups, setLookups] = useState<Lookup[]>([]);
   const [showGroupForm, setShowGroupForm] = useState(false);
-  const [newGroup, setNewGroup] = useState({ Name: "", Description: "", IsActive: true });
+  const [newGroup, setNewGroup] = useState({
+    Name: "",
+    Description: "",
+    IsActive: true,
+  });
   const [showLookupForm, setShowLookupForm] = useState(false);
-  const [newLookup, setNewLookup] = useState({ Value: "", isActive: 1, MetaData: "" });
+  const [newLookup, setNewLookup] = useState({
+    Value: "",
+    isActive: 1,
+    MetaData: "",
+  });
 
   useEffect(() => {
     fetch("/lookup/api/lookupGroup")
@@ -38,7 +46,9 @@ export default function LookupManager() {
     });
     setShowGroupForm(false);
     setNewGroup({ Name: "", Description: "", IsActive: true });
-    fetch("/lookup/api/lookupGroup").then((r) => r.json()).then(setGroups);
+    fetch("/lookup/api/lookupGroup")
+      .then((r) => r.json())
+      .then(setGroups);
   };
 
   const handleAddLookup = async () => {
@@ -50,69 +60,102 @@ export default function LookupManager() {
     });
     setShowLookupForm(false);
     setNewLookup({ Value: "", isActive: 1, MetaData: "" });
-    fetch(`/lookup/api/lookup?groupId=${selectedGroup.ID}`).then((r) => r.json()).then(setLookups);
+    fetch(`/lookup/api/lookup?groupId=${selectedGroup.ID}`)
+      .then((r) => r.json())
+      .then(setLookups);
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <Link href="/" className="block mb-4 font-semibold text-purple-700 hover:underline">&larr; Back to Main Menu</Link>
-      <h1 className="text-2xl font-bold mb-4">Lookup Group Management</h1>
+    <div className="mx-auto p-6 max-w-5xl">
+      <Link
+        href="/"
+        className="block mb-4 font-semibold text-purple-700 hover:underline"
+      >
+        &larr; Back to Main Menu
+      </Link>
+      <h1 className="mb-4 font-bold text-2xl">Lookup Group Management</h1>
       <div className="flex gap-8">
         <div className="w-1/2">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-semibold">Lookup Groups</h2>
-            <button className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded" onClick={() => setShowGroupForm(true)}>
+            <h2 className="font-semibold text-lg">Lookup Groups</h2>
+            <button
+              className="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded text-white"
+              onClick={() => setShowGroupForm(true)}
+            >
               + Add Group
             </button>
           </div>
-          <table className="w-full border mb-4">
+          <table className="mb-4 border w-full">
             <thead>
               <tr>
-                <th className="border px-2 py-1">ID</th>
-                <th className="border px-2 py-1">Name</th>
-                <th className="border px-2 py-1">Active</th>
+                <th className="px-2 py-1 border">ID</th>
+                <th className="px-2 py-1 border">Name</th>
+                <th className="px-2 py-1 border">Active</th>
               </tr>
             </thead>
             <tbody>
               {groups.map((g) => (
                 <tr
                   key={g.ID}
-                  className={selectedGroup?.ID === g.ID ? "bg-blue-100 cursor-pointer" : "cursor-pointer"}
+                  className={
+                    selectedGroup?.ID === g.ID
+                      ? "bg-blue-100 cursor-pointer"
+                      : "cursor-pointer"
+                  }
                   onClick={() => setSelectedGroup(g)}
                 >
-                  <td className="border px-2 py-1">{g.ID}</td>
-                  <td className="border px-2 py-1">{g.Name}</td>
-                  <td className="border px-2 py-1 text-center">{g.isActive ? <span className="text-green-600 font-bold">&#10003;</span> : <span className="text-red-600 font-bold">&#10007;</span>}</td>
+                  <td className="px-2 py-1 border">{g.ID}</td>
+                  <td className="px-2 py-1 border">{g.Name}</td>
+                  <td className="px-2 py-1 border text-center">
+                    {g.isActive ? (
+                      <span className="font-bold text-green-600">&#10003;</span>
+                    ) : (
+                      <span className="font-bold text-red-600">&#10007;</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
           {showGroupForm && (
-            <div className="bg-gray-100 p-4 rounded mb-4">
-              <h3 className="font-semibold mb-2">Add Lookup Group</h3>
+            <div className="bg-gray-100 mb-4 p-4 rounded">
+              <h3 className="mb-2 font-semibold">Add Lookup Group</h3>
               <input
-                className="border p-1 mb-2 w-full"
+                className="mb-2 p-1 border w-full"
                 placeholder="Name"
                 value={newGroup.Name}
-                onChange={(e) => setNewGroup({ ...newGroup, Name: e.target.value })}
+                onChange={(e) =>
+                  setNewGroup({ ...newGroup, Name: e.target.value })
+                }
               />
               <input
-                className="border p-1 mb-2 w-full"
+                className="mb-2 p-1 border w-full"
                 placeholder="Description"
                 value={newGroup.Description}
-                onChange={(e) => setNewGroup({ ...newGroup, Description: e.target.value })}
+                onChange={(e) =>
+                  setNewGroup({ ...newGroup, Description: e.target.value })
+                }
               />
               <label className="block mb-2">
                 <input
                   type="checkbox"
                   checked={newGroup.IsActive}
-                  onChange={(e) => setNewGroup({ ...newGroup, IsActive: e.target.checked })}
-                /> Active
+                  onChange={(e) =>
+                    setNewGroup({ ...newGroup, IsActive: e.target.checked })
+                  }
+                />{" "}
+                Active
               </label>
-              <button className="bg-green-600 text-white px-3 py-1 rounded mr-2" onClick={handleAddGroup}>
+              <button
+                className="bg-green-600 mr-2 px-3 py-1 rounded text-white"
+                onClick={handleAddGroup}
+              >
                 Save
               </button>
-              <button className="bg-gray-400 text-white px-3 py-1 rounded" onClick={() => setShowGroupForm(false)}>
+              <button
+                className="bg-gray-400 px-3 py-1 rounded text-white"
+                onClick={() => setShowGroupForm(false)}
+              >
                 Cancel
               </button>
             </div>
@@ -120,66 +163,97 @@ export default function LookupManager() {
         </div>
         <div className="w-1/2">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-semibold">Lookups</h2>
+            <h2 className="font-semibold text-lg">Lookups</h2>
             {selectedGroup && (
-              <button className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded" onClick={() => setShowLookupForm(true)}>
+              <button
+                className="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded text-white"
+                onClick={() => setShowLookupForm(true)}
+              >
                 + Add Lookup
               </button>
             )}
           </div>
           {selectedGroup ? (
             <>
-              <table className="w-full border mb-4">
+              <table className="mb-4 border w-full">
                 <thead>
                   <tr>
-                    <th className="border px-2 py-1">ID</th>
-                    <th className="border px-2 py-1">Value</th>
-                    <th className="border px-2 py-1">Active</th>
+                    <th className="px-2 py-1 border">ID</th>
+                    <th className="px-2 py-1 border">Value</th>
+                    <th className="px-2 py-1 border">Active</th>
                   </tr>
                 </thead>
                 <tbody>
                   {lookups.map((l) => (
                     <tr key={l.ID}>
-                      <td className="border px-2 py-1">{l.ID}</td>
-                      <td className="border px-2 py-1">{l.Value}</td>
-                      <td className="border px-2 py-1 text-center">{l.isActive ? <span className="text-green-600 font-bold">&#10003;</span> : <span className="text-red-600 font-bold">&#10007;</span>}</td>
+                      <td className="px-2 py-1 border">{l.ID}</td>
+                      <td className="px-2 py-1 border">{l.Value}</td>
+                      <td className="px-2 py-1 border text-center">
+                        {l.isActive ? (
+                          <span className="font-bold text-green-600">
+                            &#10003;
+                          </span>
+                        ) : (
+                          <span className="font-bold text-red-600">
+                            &#10007;
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {showLookupForm && (
-                <div className="bg-gray-100 p-4 rounded mb-4">
-                  <h3 className="font-semibold mb-2">Add Lookup</h3>
+                <div className="bg-gray-100 mb-4 p-4 rounded">
+                  <h3 className="mb-2 font-semibold">Add Lookup</h3>
                   <input
-                    className="border p-1 mb-2 w-full"
+                    className="mb-2 p-1 border w-full"
                     placeholder="Value"
                     value={newLookup.Value}
-                    onChange={(e) => setNewLookup({ ...newLookup, Value: e.target.value })}
+                    onChange={(e) =>
+                      setNewLookup({ ...newLookup, Value: e.target.value })
+                    }
                   />
                   <label className="block mb-2">
                     <input
                       type="checkbox"
                       checked={!!newLookup.isActive}
-                      onChange={(e) => setNewLookup({ ...newLookup, isActive: e.target.checked ? 1 : 0 })}
-                    /> Active
+                      onChange={(e) =>
+                        setNewLookup({
+                          ...newLookup,
+                          isActive: e.target.checked ? 1 : 0,
+                        })
+                      }
+                    />{" "}
+                    Active
                   </label>
                   <input
-                    className="border p-1 mb-2 w-full"
+                    className="mb-2 p-1 border w-full"
                     placeholder="MetaData (optional XML)"
                     value={newLookup.MetaData}
-                    onChange={(e) => setNewLookup({ ...newLookup, MetaData: e.target.value })}
+                    onChange={(e) =>
+                      setNewLookup({ ...newLookup, MetaData: e.target.value })
+                    }
                   />
-                  <button className="bg-green-600 text-white px-3 py-1 rounded mr-2" onClick={handleAddLookup}>
+                  <button
+                    className="bg-green-600 mr-2 px-3 py-1 rounded text-white"
+                    onClick={handleAddLookup}
+                  >
                     Save
                   </button>
-                  <button className="bg-gray-400 text-white px-3 py-1 rounded" onClick={() => setShowLookupForm(false)}>
+                  <button
+                    className="bg-gray-400 px-3 py-1 rounded text-white"
+                    onClick={() => setShowLookupForm(false)}
+                  >
                     Cancel
                   </button>
                 </div>
               )}
             </>
           ) : (
-            <div className="text-gray-500">Select a Lookup Group to view lookups.</div>
+            <div className="text-gray-500">
+              Select a Lookup Group to view lookups.
+            </div>
           )}
         </div>
       </div>

@@ -275,17 +275,18 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
           </span>
         ) : null}
         {/* Debug: log lookup info for each populated cell */}
-        {cell && (() => {
-          if (isLookupField(cell.FieldName)) {
-            console.debug("Lookup cell:", {
-              FieldName: cell.FieldName,
-              LookupGroupID: cell.LookupGroupID,
-              GroupName: lookupGroupMap[cell.LookupGroupID],
-              Descriptor: cell,
-            });
-          }
-          return null;
-        })()}
+        {cell &&
+          (() => {
+            if (isLookupField(cell.FieldName)) {
+              console.debug("Lookup cell:", {
+                FieldName: cell.FieldName,
+                LookupGroupID: cell.LookupGroupID,
+                GroupName: lookupGroupMap[cell.LookupGroupID],
+                Descriptor: cell,
+              });
+            }
+            return null;
+          })()}
       </td>
     );
   };
@@ -325,9 +326,7 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     async function fetchAttribute() {
-      const res = await fetch(
-        `http://localhost:3000/Attribute/api?id=${params.id}`
-      );
+      const res = await fetch(`/Attribute/api?id=${params.id}`);
       if (res.ok) {
         setAttribute(await res.json());
       } else {

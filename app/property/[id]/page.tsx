@@ -63,7 +63,9 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
   React.useEffect(() => {
     fetch("/lookup/api/lookupGroup")
       .then((res) => res.json())
-      .then((data) => setLookupGroups(data.filter((g: LookupGroup) => g.isActive)));
+      .then((data) =>
+        setLookupGroups(data.filter((g: LookupGroup) => g.isActive))
+      );
   }, []);
 
   React.useEffect(() => {
@@ -79,7 +81,9 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
     }
   }, [lookupGroups]);
 
-  const lookupGroupMap = Object.fromEntries(lookupGroups.map((g) => [g.ID, g.Name]));
+  const lookupGroupMap = Object.fromEntries(
+    lookupGroups.map((g) => [g.ID, g.Name])
+  );
   const lookupValueMap = Object.fromEntries(
     lookups.map((l) => [l.ID, l.Value])
   );
@@ -146,12 +150,18 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                     ) {
                       // If lookup field, show value and group name together
                       if (isLookupField(desc.fieldName)) {
-                        const lookupId = selectedAttr[desc.fieldName as keyof PropertyAttribute] as number | undefined;
-                        const lookupValue = lookupId ? lookupValueMap[lookupId] : undefined;
+                        const lookupId = selectedAttr[
+                          desc.fieldName as keyof PropertyAttribute
+                        ] as number | undefined;
+                        const lookupValue = lookupId
+                          ? lookupValueMap[lookupId]
+                          : undefined;
                         value = lookupValue ?? "";
                       } else {
                         value = formatAttrValue(
-                          selectedAttr[desc.fieldName as keyof PropertyAttribute],
+                          selectedAttr[
+                            desc.fieldName as keyof PropertyAttribute
+                          ],
                           desc.fieldName
                         );
                       }
@@ -208,6 +218,44 @@ function AddAttributePanel({
   setAddingAttrMode: (mode: "select" | "form" | null) => void;
   onSave: () => void;
 }) {
+  const [lookupGroups, setLookupGroups] = React.useState<LookupGroup[]>([]);
+  const [lookups, setLookups] = React.useState<Lookup[]>([]);
+
+  // Helper: check if field is a lookup field
+  const isLookupField = (field: string) => {
+    return /lookup/i.test(field);
+  };
+
+  // Helper: check if field is an integer field
+  const isIntegerField = (fieldName: string) => {
+    return /^int\d+$/i.test(fieldName);
+  };
+
+  // Fetch lookup groups and lookups
+  React.useEffect(() => {
+    fetch("/lookup/api/lookupGroup")
+      .then((res) => res.json())
+      .then((data) =>
+        setLookupGroups(data.filter((g: LookupGroup) => g.isActive))
+      );
+  }, []);
+
+  React.useEffect(() => {
+    if (lookupGroups.length > 0) {
+      Promise.all(
+        lookupGroups.map((g) =>
+          fetch(`/lookup/api/lookup?groupId=${g.ID}`)
+            .then((res) => res.json())
+            .then((data) => data as Lookup[])
+        )
+      ).then((allLookups) => setLookups(allLookups.flat()));
+    }
+  }, [lookupGroups]);
+
+  const lookupGroupMap = Object.fromEntries(
+    lookupGroups.map((g) => [g.ID, g.Name])
+  );
+
   // Debug output for addAttrDescriptors array
   React.useEffect(() => {
     console.log("AddAttributePanel addAttrDescriptors:", addAttrDescriptors);
@@ -260,7 +308,31 @@ function AddAttributePanel({
           .map((desc) => (
             <div key={desc.fieldName} className="flex flex-col mb-2">
               <label className="mb-1 font-medium text-sm">{desc.label}</label>
-              {desc.inputType === "textarea" ? (
+              {isLookupField(desc.fieldName) ? (
+                <select
+                  className="p-2 border rounded"
+                  value={newAttrValues[desc.fieldName] || ""}
+                  onChange={(e) =>
+                    setNewAttrValues({
+                      ...newAttrValues,
+                      [desc.fieldName]: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select...</option>
+                  {lookups
+                    .filter(
+                      (lookup) =>
+                        desc.lookupGroupId &&
+                        lookup.LookupGroupID === desc.lookupGroupId
+                    )
+                    .map((lookup) => (
+                      <option key={lookup.ID} value={lookup.ID}>
+                        {lookup.Value}
+                      </option>
+                    ))}
+                </select>
+              ) : desc.inputType === "textarea" ? (
                 <textarea
                   className="p-2 border rounded"
                   value={newAttrValues[desc.fieldName] || ""}
@@ -306,11 +378,31 @@ function AddAttributePanel({
                   type={desc.inputType}
                   className="p-2 border rounded"
                   value={newAttrValues[desc.fieldName] || ""}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    let value = e.target.value;
+                    // If this is an integer field, only allow numeric input
+                    if (isIntegerField(desc.fieldName)) {
+                      // Remove any non-numeric characters (allow negative sign at start)
+                      value = value.replace(/[^-0-9]/g, "");
+                      // Only allow one negative sign at the beginning
+                      if (value.indexOf("-") > 0) {
+                        value = value.replace(/-/g, "");
+                      }
+                      // Prevent multiple negative signs
+                      if ((value.match(/-/g) || []).length > 1) {
+                        value = value.replace(/-+/g, "-");
+                      }
+                    }
                     setNewAttrValues({
                       ...newAttrValues,
-                      [desc.fieldName]: e.target.value,
-                    })
+                      [desc.fieldName]: value,
+                    });
+                  }}
+                  inputMode={
+                    isIntegerField(desc.fieldName) ? "numeric" : undefined
+                  }
+                  pattern={
+                    isIntegerField(desc.fieldName) ? "^-?[0-9]*$" : undefined
                   }
                 />
               )}
@@ -374,14 +466,23 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
   >(null);
 
   // Helper: infer input type from field name
-  function inferInputType(fieldName: string) {
+  const inferInputType = (fieldName: string) => {
     if (/date/i.test(fieldName)) return "date";
     if (/email/i.test(fieldName)) return "email";
     if (/phone|tel/i.test(fieldName)) return "tel";
-    if (/number|qty|amount|count|id$/i.test(fieldName)) return "number";
+    if (
+      /^int\d+$/i.test(fieldName) ||
+      /number|qty|amount|count|id$/i.test(fieldName)
+    )
+      return "number";
     if (/desc|note|comment/i.test(fieldName)) return "textarea";
     return "text";
-  }
+  };
+
+  // Helper: check if field is an integer field
+  const isIntegerField = (fieldName: string) => {
+    return /^int\d+$/i.test(fieldName);
+  };
 
   // Show Add Attribute panel and fetch available attributes
   const handleShowAddAttribute = async () => {
@@ -422,8 +523,12 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
       ? params.id
       : undefined;
   const [property, setProperty] = useState<PropertyDetails | null>(null);
-  const [propertyAttributes, setPropertyAttributes] = useState<PropertyAttribute[]>([]);
-  const [parentProperties, setParentProperties] = useState<PropertyDetails[]>([]);
+  const [propertyAttributes, setPropertyAttributes] = useState<
+    PropertyAttribute[]
+  >([]);
+  const [parentProperties, setParentProperties] = useState<PropertyDetails[]>(
+    []
+  );
   const [childProperties, setChildProperties] = useState<PropertyDetails[]>([]);
   const [attributeDescriptors, setAttributeDescriptors] = useState<any[]>([]);
   const [selectedAttrId, setSelectedAttrId] = useState<number | null>(null);
@@ -442,7 +547,9 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
         const attrData = attrRes.ok ? await attrRes.json() : [];
         setPropertyAttributes(attrData);
         // Fetch parent property
-        const parentRes = await fetch(`/property/api/getParentProperty?propertyId=${propData.PropertyID}`);
+        const parentRes = await fetch(
+          `/property/api/getParentProperty?propertyId=${propData.PropertyID}`
+        );
         if (parentRes.ok) {
           const parents = await parentRes.json();
           setParentProperties(parents || []);
@@ -450,7 +557,9 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
           setParentProperties([]);
         }
         // Fetch child properties
-        const childRes = await fetch(`/property/api/getChildProperties?propertyId=${propData.PropertyID}`);
+        const childRes = await fetch(
+          `/property/api/getChildProperties?propertyId=${propData.PropertyID}`
+        );
         if (childRes.ok) {
           const children = await childRes.json();
           setChildProperties(children || []);
@@ -501,6 +610,17 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
     console.log("addAttrDescriptors:", addAttrDescriptors);
   }, [addAttrDescriptors]);
 
+  // Function to refetch property attributes
+  const refetchPropertyAttributes = async () => {
+    if (property?.PropertyID) {
+      const attrRes = await fetch(
+        `/property/api/propertyAttributes?propertyId=${property.PropertyID}`
+      );
+      const attrData = attrRes.ok ? await attrRes.json() : [];
+      setPropertyAttributes(attrData);
+    }
+  };
+
   // Save new attribute
   const handleSaveNewAttribute = async () => {
     const payload = {
@@ -526,11 +646,18 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
       Boolean02: newAttrValues.Boolean02 ?? null,
       Boolean03: newAttrValues.Boolean03 ?? null,
     };
-    await fetch("/property/api/insertPropertyAttribute", {
+
+    const response = await fetch("/property/api/insertPropertyAttribute", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
+    if (response.ok) {
+      // Refresh the property attributes list after successful save
+      await refetchPropertyAttributes();
+    }
+
     setShowAddAttribute(false);
     setSelectedNewAttrId(null);
     setAddingAttrMode(null);
@@ -584,7 +711,9 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
             const col1Keys = col1.map(([k]) => k);
             const col3Keys = boolKeys;
             const col2 = Object.entries(property)
-              .filter(([k, v]) => !col1Keys.includes(k) && !col3Keys.includes(k))
+              .filter(
+                ([k, v]) => !col1Keys.includes(k) && !col3Keys.includes(k)
+              )
               .map(([k, v]) => [
                 k,
                 v,
@@ -667,9 +796,11 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
 
           {/* Hierarchy Section */}
           <div className="mb-6">
-            <h2 className="font-semibold text-lg mb-2">Hierarchy</h2>
-            {(parentProperties.length === 0 && childProperties.length === 0) ? (
-              <div className="text-gray-500">No parent or child properties.</div>
+            <h2 className="mb-2 font-semibold text-lg">Hierarchy</h2>
+            {parentProperties.length === 0 && childProperties.length === 0 ? (
+              <div className="text-gray-500">
+                No parent or child properties.
+              </div>
             ) : (
               <table className="border border-gray-300 min-w-full">
                 <thead>
@@ -683,27 +814,41 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
                   {parentProperties.map((p) => (
                     <tr key={"parent-" + p.PropertyID} className="bg-green-50">
                       <td className="px-2 py-1 border">
-                        <Link href={`/property/${p.PropertyID}`} className="text-green-700 font-bold underline">
+                        <Link
+                          href={`/property/${p.PropertyID}`}
+                          className="font-bold text-green-700 underline"
+                        >
                           {p.PropertyID}
                         </Link>
                       </td>
                       <td className="px-2 py-1 border">
-                        <Link href={`/property/${p.PropertyID}`} className="text-green-700 font-bold underline">
+                        <Link
+                          href={`/property/${p.PropertyID}`}
+                          className="font-bold text-green-700 underline"
+                        >
                           {p.AddressLine1}
                         </Link>
                       </td>
-                      <td className="px-2 py-1 border text-green-700 font-bold">{p.TypeName}</td>
+                      <td className="px-2 py-1 border font-bold text-green-700">
+                        {p.TypeName}
+                      </td>
                     </tr>
                   ))}
                   {childProperties.map((p) => (
                     <tr key={"child-" + p.PropertyID}>
                       <td className="px-2 py-1 border">
-                        <Link href={`/property/${p.PropertyID}`} className="text-black underline">
+                        <Link
+                          href={`/property/${p.PropertyID}`}
+                          className="text-black underline"
+                        >
                           {p.PropertyID}
                         </Link>
                       </td>
                       <td className="px-2 py-1 border">
-                        <Link href={`/property/${p.PropertyID}`} className="text-black underline">
+                        <Link
+                          href={`/property/${p.PropertyID}`}
+                          className="text-black underline"
+                        >
                           {p.AddressLine1}
                         </Link>
                       </td>
@@ -745,31 +890,72 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {propertyAttributes.map((attr) => (
-                    <tr
-                      key={attr.ID}
-                      className={
-                        selectedAttrId === attr.ID
-                          ? "bg-blue-100 cursor-pointer"
-                          : "cursor-pointer"
+                  {(() => {
+                    // Group attributes by AttributeGroup
+                    const groupedAttrs: {
+                      [key: string]: typeof propertyAttributes;
+                    } = {};
+
+                    propertyAttributes.forEach((attr: any) => {
+                      const groupName =
+                        attr.AttributeGroupName || "Ungrouped Attributes";
+                      if (!groupedAttrs[groupName]) {
+                        groupedAttrs[groupName] = [];
                       }
-                      onClick={() => setSelectedAttrId(attr.ID)}
-                    >
-                      <td className="px-2 py-1 border">{attr.ID}</td>
-                      <td className="px-2 py-1 border">{attr.Name ?? ""}</td>
-                      <td className="px-2 py-1 border text-center">
-                        {attr.isActive ? (
-                          <span className="font-bold text-green-600">
-                            &#10003;
-                          </span>
-                        ) : (
-                          <span className="font-bold text-red-600">
-                            &#10007;
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                      groupedAttrs[groupName].push(attr);
+                    });
+
+                    // Sort group names (Ungrouped always last)
+                    const sortedGroupNames = Object.keys(groupedAttrs).sort(
+                      (a, b) => {
+                        if (a === "Ungrouped Attributes") return 1;
+                        if (b === "Ungrouped Attributes") return -1;
+                        return a.localeCompare(b);
+                      }
+                    );
+
+                    return sortedGroupNames
+                      .map((groupName) => [
+                        // Group header row
+                        <tr key={`header-${groupName}`}>
+                          <td
+                            colSpan={3}
+                            className="bg-purple-600 px-2 py-2 border font-semibold text-white text-center"
+                          >
+                            {groupName}
+                          </td>
+                        </tr>,
+                        // Attribute rows for this group
+                        ...groupedAttrs[groupName].map((attr: any) => (
+                          <tr
+                            key={attr.ID}
+                            className={
+                              selectedAttrId === attr.ID
+                                ? "bg-blue-100 cursor-pointer"
+                                : "cursor-pointer"
+                            }
+                            onClick={() => setSelectedAttrId(attr.ID)}
+                          >
+                            <td className="px-2 py-1 border">{attr.ID}</td>
+                            <td className="px-2 py-1 border">
+                              {attr.Name ?? ""}
+                            </td>
+                            <td className="px-2 py-1 border text-center">
+                              {attr.isActive ? (
+                                <span className="font-bold text-green-600">
+                                  &#10003;
+                                </span>
+                              ) : (
+                                <span className="font-bold text-red-600">
+                                  &#10007;
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        )),
+                      ])
+                      .flat();
+                  })()}
                 </tbody>
               </table>
             )}

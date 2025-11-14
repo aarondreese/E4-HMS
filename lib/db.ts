@@ -1,13 +1,14 @@
 import sql from 'mssql';
 
-const config = {
-  user: process.env.DB_USER ?? '',
-  password: process.env.DB_PASSWORD ?? '',
-  server: process.env.DB_SERVER ?? '', // e.g. 'localhost'
-  database: process.env.DB_NAME ?? '',
+// MSSQL connection config - uses env.local
+const dbConfig = {
+  user: process.env.DB_USER!,
+  password: process.env.DB_PASSWORD!,
+  server: process.env.DB_SERVER!,
+  database: process.env.DB_NAME!,
   options: {
-    encrypt: false, // For local dev, set to true for Azure
-    trustServerCertificate: true, // For local dev
+    encrypt: false,
+    trustServerCertificate: true,
   },
 };
 
@@ -15,7 +16,7 @@ let pool: sql.ConnectionPool | undefined;
 
 export async function getConnection() {
   if (!pool) {
-    pool = await new sql.ConnectionPool(config).connect();
+    pool = await new sql.ConnectionPool(dbConfig).connect();
   }
   return pool;
 }

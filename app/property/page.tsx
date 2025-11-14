@@ -1,4 +1,3 @@
-
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -18,7 +17,9 @@ export default function PropertyPage() {
   const [filtered, setFiltered] = useState<PropertyDetails[]>([]);
 
   useEffect(() => {
-    getProperties().then(setProperties).catch(() => setProperties([]));
+    getProperties()
+      .then(setProperties)
+      .catch(() => setProperties([]));
   }, []);
 
   useEffect(() => {
@@ -44,13 +45,13 @@ export default function PropertyPage() {
         </a>
       </div>
       <h1>Properties</h1>
-      <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
+      <div className="flex sm:flex-row flex-col sm:items-center gap-2 mb-4">
         <input
           type="text"
           placeholder="Search by address or postcode..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border rounded px-2 py-1 w-full sm:w-64"
+          className="px-2 py-1 border rounded w-full sm:w-64"
         />
       </div>
       <table className="border border-gray-300 min-w-full">
@@ -76,7 +77,9 @@ export default function PropertyPage() {
               </td>
               <td className="px-2 py-1 border">{p.TypeName}</td>
               <td className="px-2 py-1 border">{p.PostCode ?? "N/A"}</td>
-              <td className="px-2 py-1 border">{p.isLettable ? "Yes" : "No"}</td>
+              <td className="px-2 py-1 border">
+                {p.isLettable ? "Yes" : "No"}
+              </td>
               <td className="px-2 py-1 border">{p.isVirtual ? "Yes" : "No"}</td>
               <td className="px-2 py-1 border">{p.TakeOnDate?.slice(0, 10)}</td>
             </tr>

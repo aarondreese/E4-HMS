@@ -1,9 +1,14 @@
 import { AttributeGroup } from "@/lib/attributeGroup";
 
 async function getAttributeGroups(): Promise<AttributeGroup[]> {
-  const res = await fetch("http://localhost:3000/AttributeGroup/api", {
-    cache: "no-store",
-  });
+  const res = await fetch(
+    `${
+      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+    }/AttributeGroup/api`,
+    {
+      cache: "no-store",
+    }
+  );
   if (!res.ok) throw new Error("Failed to fetch attribute groups");
   return res.json();
 }
