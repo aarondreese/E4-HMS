@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { LookupGroup } from "@/lib/lookupGroup";
-import { Lookup } from "@/lib/lookup";
+import { LookupGroup, Lookup } from "@/types";
 import Link from "next/link";
 
 export default function LookupManager() {

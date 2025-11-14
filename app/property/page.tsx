@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { PropertyDetails } from "@/lib/propertyDetails";
+import { PropertyDetails } from "@/types";
 
 async function getProperties(): Promise<PropertyDetails[]> {
   const res = await fetch("/property/api/properties", {

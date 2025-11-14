@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Attribute } from "@/lib/types";
+import { Attribute } from "@/types";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 

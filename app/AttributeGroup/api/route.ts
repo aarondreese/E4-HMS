@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { AttributeGroup } from '@/lib/attributeGroup';
+import { AttributeGroup } from '@/types';
 
 // GET: List all attribute groups
 export async function GET(request: NextRequest) {
@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const result = await query('SELECT * FROM AttributeGroup');
     return NextResponse.json(result.recordset as AttributeGroup[]);
   } catch (error) {
+    console.error('AttributeGroup API Error:', error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }

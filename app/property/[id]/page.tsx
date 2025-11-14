@@ -1,8 +1,7 @@
 "use client";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
-import { PropertyAttribute } from "@/lib/propertyAttribute";
-import { PropertyDetails } from "@/lib/propertyDetails";
+import { PropertyAttribute, PropertyDetails } from "@/types";
 
 function formatAttrValue(value: any, key: string) {
   if (value && typeof value === "object") {
@@ -47,8 +46,7 @@ interface TabsPanelProps {
 }
 
 // Clean TabsPanel component
-import { LookupGroup } from "@/lib/lookupGroup";
-import { Lookup } from "@/lib/lookup";
+import { LookupGroup, Lookup } from "@/types";
 
 function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
   const tabs = [1, 2, 3];

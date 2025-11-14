@@ -1,16 +1,8 @@
 "use client";
 
-import { AttributeGroup } from "@/lib/attributeGroup";
-import { Attribute } from "@/lib/types";
+import { AttributeGroup, Attribute, AttributeGroupAttribute } from "@/types";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-interface AttributeGroupAttribute {
-  ID: number;
-  AttributeGroupID: number;
-  AttributeID: number;
-  AttributeName: string;
-}
 
 export default function AttributeGroupDetailPage({
   params,

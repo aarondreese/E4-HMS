@@ -2,13 +2,7 @@
 import { useState, useEffect } from "react";
 import { useDrag, useDrop, DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { LookupGroup } from "@/lib/lookupGroup";
-
-interface Attribute {
-  ID: number;
-  Name: string;
-  isActive: number;
-}
+import { LookupGroup, Attribute } from "@/types";
 
 function DraggableFieldPill({ field }: { field: string }) {
   const [{ isDragging }, drag] = useDrag({
@@ -18,7 +12,7 @@ function DraggableFieldPill({ field }: { field: string }) {
   });
   return (
     <li
-      ref={drag}
+      ref={drag as unknown as React.LegacyRef<HTMLLIElement>}
       className={`inline-block px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300 font-medium shadow-sm cursor-move text-center align-middle${
         isDragging ? " opacity-50" : ""
       }`}

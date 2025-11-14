@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { PropertyDetails } from "@/lib/propertyDetails";
-import { PropertyHierarchy } from "@/lib/propertyHierarchy";
+import { PropertyDetails, PropertyHierarchy } from "@/types";
 
 // Helper to get property details by ID
 async function getPropertyDetails(propertyId: number): Promise<PropertyDetails | null> {

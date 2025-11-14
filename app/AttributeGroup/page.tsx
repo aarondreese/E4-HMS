@@ -1,16 +1,14 @@
-import { AttributeGroup } from "@/lib/attributeGroup";
+import { AttributeGroup } from "@/types";
+import { query } from "@/lib/db";
 
 async function getAttributeGroups(): Promise<AttributeGroup[]> {
-  const res = await fetch(
-    `${
-      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    }/AttributeGroup/api`,
-    {
-      cache: "no-store",
-    }
-  );
-  if (!res.ok) throw new Error("Failed to fetch attribute groups");
-  return res.json();
+  try {
+    const result = await query("SELECT * FROM AttributeGroup");
+    return result.recordset as AttributeGroup[];
+  } catch (error) {
+    console.error("Failed to fetch attribute groups:", error);
+    throw new Error("Failed to fetch attribute groups");
+  }
 }
 
 export default async function AttributeGroupPage() {
