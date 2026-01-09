@@ -496,6 +496,20 @@ function AddAttributePanel({
     lookupGroups.map((g) => [g.ID, g.Name])
   );
 
+  const isDescriptorRequired = (desc: any) => Boolean(desc.isRequired);
+  const isFieldComplete = (desc: any) => {
+    const value = newAttrValues[desc.fieldName];
+    if (value === undefined || value === null) return false;
+    if (typeof value === "string") {
+      return value.trim().length > 0;
+    }
+    return true;
+  };
+  const requiredDescriptors = addAttrDescriptors.filter(isDescriptorRequired);
+  const areRequiredFieldsComplete =
+    requiredDescriptors.length === 0 ||
+    requiredDescriptors.every((desc) => isFieldComplete(desc));
+
   // Debug output for addAttrDescriptors array
   React.useEffect(() => {
     console.log("AddAttributePanel addAttrDescriptors:", addAttrDescriptors);
@@ -511,7 +525,8 @@ function AddAttributePanel({
           const tabComplete =
             tabFields.length > 0 &&
             tabFields.every(
-              (desc) => newAttrValues[desc.fieldName] !== undefined
+              (desc) =>
+                !isDescriptorRequired(desc) || isFieldComplete(desc)
             );
           return (
             <button
@@ -547,7 +562,14 @@ function AddAttributePanel({
           .filter((d) => d.tab === addAttrSelectedTab)
           .map((desc) => (
             <div key={desc.fieldName} className="flex flex-col mb-2">
-              <label className="mb-1 font-medium text-sm">{desc.label}</label>
+              <label className="mb-1 font-medium text-sm">
+                <span>{desc.label}</span>
+                {isDescriptorRequired(desc) && (
+                  <span className="ml-1 text-red-600" aria-hidden="true">
+                    *
+                  </span>
+                )}
+              </label>
               {desc.inputType === "image" ? (
                 <ImageUploadField
                   label={desc.label}
@@ -676,21 +698,11 @@ function AddAttributePanel({
         <button
           type="button"
           className={`px-3 py-1 rounded bg-green-600 text-white font-semibold transition ${
-            addAttrDescriptors.length > 0 &&
-            addAttrDescriptors.every(
-              (desc) => newAttrValues[desc.fieldName] !== undefined
-            )
+            areRequiredFieldsComplete
               ? "hover:bg-green-700"
               : "opacity-50 cursor-not-allowed"
           }`}
-          disabled={
-            !(
-              addAttrDescriptors.length > 0 &&
-              addAttrDescriptors.every(
-                (desc) => newAttrValues[desc.fieldName] !== undefined
-              )
-            )
-          }
+          disabled={!areRequiredFieldsComplete}
           onClick={onSave}
         >
           Save
@@ -763,6 +775,7 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
       const withInputType = descData.map((desc: any) => ({
         ...desc,
         inputType: inferInputType(desc.fieldName),
+        isRequired: Boolean(desc.isRequired),
       }));
       setAddAttrDescriptors(withInputType);
     }

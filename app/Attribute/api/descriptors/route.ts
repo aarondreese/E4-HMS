@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
   }
   try {
     const result = await query(
-      `SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber, LookupGroupID FROM AttributeDescriptor WHERE AttributeID = @id`,
+      `SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber, LookupGroupID, isRequired AS IsRequired
+       FROM AttributeDescriptor WHERE AttributeID = @id`,
       [{ name: 'id', value: parseInt(id) }]
     );
     return NextResponse.json(result.recordset);
@@ -39,11 +40,31 @@ export async function POST(request: NextRequest) {
         .input('FieldName', record.FieldName)
         .input('Label', record.Label)
         .input('LookupGroupID', record.LookupGroupID ?? null)
+        .input('IsRequired', record.IsRequired ?? 0)
         .execute('usp_InsertAttributeDescriptor');
     }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[AttributeDescriptor POST] Error:', error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
+}
+
+// DELETE: Remove a descriptor by ID
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+  if (!id) {
+    return NextResponse.json({ error: 'Missing id parameter' }, { status: 400 });
+  }
+  try {
+    await query(
+      'DELETE FROM AttributeDescriptor WHERE ID = @id',
+      [{ name: 'id', value: parseInt(id, 10) }]
+    );
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[AttributeDescriptor DELETE] Error:', error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }

@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   try {
     // Use the common query function from db.ts
     const result = await query(
-      `SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber, LookupGroupID
+      `SELECT ID, AttributeID, FieldName, Label, TabNumber, RowNumber, ColumnNumber, LookupGroupID, isRequired AS IsRequired
        FROM AttributeDescriptor
        WHERE AttributeID = @attributeId
        ORDER BY TabNumber, RowNumber, ColumnNumber`,
@@ -32,6 +32,7 @@ export async function GET(request: Request) {
       row: Number(row.RowNumber),
       col: Number(row.ColumnNumber),
       lookupGroupId: row.LookupGroupID,
+      isRequired: row.IsRequired,
     }));
     console.log('Descriptor query result:', descriptors);
     return NextResponse.json(descriptors);

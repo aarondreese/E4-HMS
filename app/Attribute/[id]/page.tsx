@@ -32,6 +32,7 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
     field: string;
   } | null>(null);
   const [labelInput, setLabelInput] = useState("");
+  const [requiredInput, setRequiredInput] = useState(false);
   // Track newly added fields for highlight
   const [newFields, setNewFields] = useState<
     { tab: number; row: number; col: number; field: string }[]
@@ -41,12 +42,54 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
     number | null
   >(null);
 
-  const handleRemoveField = (
+  const handleRemoveField = async (
     tab: number,
     row: number,
     col: number,
     field: string
   ) => {
+    const descriptor = descriptors.find(
+      (d) =>
+        d.TabNumber === tab &&
+        d.RowNumber === row &&
+        d.ColumnNumber === col &&
+        d.FieldName === field
+    );
+    if (!descriptor) {
+      return;
+    }
+
+    const isNew = newFields.some(
+      (f) => f.tab === tab && f.row === row && f.col === col && f.field === field
+    );
+
+    if (!isNew) {
+      const confirmDelete = window.confirm(
+        "Remove this field from the grid?"
+      );
+      if (!confirmDelete) {
+        return;
+      }
+      if (!descriptor.ID) {
+        alert("Cannot remove this field because it is missing an identifier.");
+        return;
+      }
+      try {
+        const response = await fetch(
+          `/Attribute/api/descriptors?id=${descriptor.ID}`,
+          {
+            method: "DELETE",
+          }
+        );
+        if (!response.ok) {
+          throw new Error("Failed to remove field");
+        }
+      } catch (error) {
+        alert("Failed to remove field: " + (error as Error).message);
+        return;
+      }
+    }
+
     setDescriptors((prev) =>
       prev.filter(
         (d) =>
@@ -109,6 +152,7 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
               ColumnNumber: colNum,
               Label: "",
               FieldName: item.field,
+              IsRequired: 0,
             },
           ]);
           setNewFields((prev) => [
@@ -122,6 +166,8 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
             field: item.field,
           });
           setLabelInput("");
+          setRequiredInput(false);
+          setSelectedLookupGroupId(null);
         }
       },
       collect: (monitor) => ({
@@ -140,15 +186,18 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
             d.ColumnNumber === editingCell?.col &&
             d.FieldName === editingCell?.field
           ) {
-            // If Lookup field, also save LookupGroupID
+            const updated = {
+              ...d,
+              Label: labelInput,
+              IsRequired: requiredInput ? 1 : 0,
+            };
             if (isLookupField(d.FieldName)) {
               return {
-                ...d,
-                Label: labelInput,
+                ...updated,
                 LookupGroupID: selectedLookupGroupId,
               };
             }
-            return { ...d, Label: labelInput };
+            return updated;
           }
           return d;
         })
@@ -156,6 +205,7 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
       setEditingCell(null);
       setLabelInput("");
       setSelectedLookupGroupId(null);
+      setRequiredInput(false);
     };
 
     // Helper to detect if a field is a Lookup field
@@ -216,6 +266,17 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
                 ))}
               </select>
             )}
+            {newCell && (
+              <label className="flex items-center gap-1 text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={requiredInput}
+                  onChange={(e) => setRequiredInput(e.target.checked)}
+                />
+                Required
+              </label>
+            )}
             <button
               type="submit"
               className="bg-blue-500 px-2 py-1 rounded text-white"
@@ -234,6 +295,12 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
                   field: cell.FieldName,
                 });
                 setLabelInput(cell.Label || "");
+                setRequiredInput(Boolean(cell.IsRequired));
+                setSelectedLookupGroupId(
+                  isLookupField(cell.FieldName)
+                    ? cell.LookupGroupID ?? null
+                    : null
+                );
               }}
               className="cursor-pointer"
             >
@@ -248,24 +315,27 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
                     [ {lookupGroupMap[cell.LookupGroupID]} ]
                   </span>
                 )}
+              {cell.IsRequired ? (
+                <span className="ml-1 text-xs font-semibold text-rose-600">
+                  Required
+                </span>
+              ) : null}
             </span>
-            {newCell && (
-              <button
-                type="button"
-                className="bg-red-500 ml-2 px-2 py-1 rounded text-white"
-                onClick={() =>
-                  handleRemoveField(
-                    activeTab + 1,
-                    rowNum,
-                    colNum,
-                    cell.FieldName
-                  )
-                }
-                title="Remove field"
-              >
-                ×
-              </button>
-            )}
+            <button
+              type="button"
+              className="bg-red-500 ml-2 px-2 py-1 rounded text-white"
+              onClick={() =>
+                handleRemoveField(
+                  activeTab + 1,
+                  rowNum,
+                  colNum,
+                  cell.FieldName
+                )
+              }
+              title="Remove field"
+            >
+              ×
+            </button>
           </span>
         ) : null}
         {/* Debug: log lookup info for each populated cell */}
@@ -322,7 +392,8 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
     async function fetchAttribute() {
       const res = await fetch(`/Attribute/api?id=${params.id}`);
       if (res.ok) {
-        setAttribute(await res.json());
+        const data = await res.json();
+        setAttribute(data);
       } else {
         setAttribute(null);
       }
@@ -360,6 +431,8 @@ function AttributeDetailPage({ params }: { params: { id: string } }) {
         ColumnNumber: f.col,
         FieldName: f.field,
         Label: desc?.Label || "",
+        LookupGroupID: desc?.LookupGroupID ?? null,
+        IsRequired: desc?.IsRequired ? 1 : 0,
       };
     });
     await fetch("/Attribute/api/descriptors", {

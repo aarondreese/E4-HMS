@@ -2,6 +2,9 @@ export interface Attribute {
   ID: number;
   Name: string;
   isActive: number;
+  Image01?: string | null; // base64 string from varbinary(max)
+  Image02?: string | null; // base64 string from varbinary(max)
+  Image03?: string | null; // base64 string from varbinary(max)
 }
 
 export interface AttributeGroup {
@@ -28,4 +31,5 @@ export interface AttributeDescriptor {
   RowNumber: number;
   ColumnNumber: number;
   LookupGroupID?: number | null;
+  IsRequired: number;
 }
