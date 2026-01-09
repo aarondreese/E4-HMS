@@ -1,7 +1,229 @@
 "use client";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import { PropertyAttribute, PropertyDetails } from "@/types";
+
+// Image Upload Field Component for Property Attributes
+function ImageUploadField({
+  label,
+  imageData,
+  onImageChange,
+}: {
+  label: string;
+  imageData?: string | null;
+  onImageChange: (base64: string | null) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleFileSelect = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      onImageChange(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+      });
+      setStream(mediaStream);
+      setShowCamera(true);
+      
+      // Wait for next tick to ensure video element is rendered
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play().catch(err => {
+            console.error("Error playing video:", err);
+          });
+        }
+      }, 200);
+    } catch (error) {
+      const err = error as Error;
+      alert("Could not access camera: " + err.message);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) {
+      alert("No video element");
+      return;
+    }
+
+    const video = videoRef.current;
+    
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      alert("Video not ready yet. Please wait a moment and try again.");
+      return;
+    }
+    
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        alert("Failed to create canvas context");
+        return;
+      }
+      
+      ctx.drawImage(video, 0, 0);
+      const base64 = canvas.toDataURL("image/jpeg", 0.9);
+      onImageChange(base64);
+      closeCamera();
+    } catch (error) {
+      const err = error as Error;
+      alert("Error capturing: " + err.message);
+    }
+  };
+
+  const closeCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+    setShowCamera(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  const handleRemove = () => {
+    onImageChange(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [stream]);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="mb-1 font-medium text-sm">{label}</label>
+      <div
+        className={`relative w-40 h-40 border-2 border-dashed rounded-lg ${
+          isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300"
+        }`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {imageData ? (
+          <div className="relative w-full h-full">
+            <Image
+              src={imageData}
+              alt={label}
+              fill
+              className="object-cover rounded-lg"
+            />
+            <button
+              onClick={handleRemove}
+              type="button"
+              className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-white text-xs"
+            >
+              ×
+            </button>
+          </div>
+        ) : showCamera ? (
+          <div className="relative w-full h-full">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover rounded-lg"
+              style={{ backgroundColor: '#000' }}
+            />
+            <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2">
+              <button
+                onClick={capturePhoto}
+                type="button"
+                className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white text-sm"
+              >
+                Capture
+              </button>
+              <button
+                onClick={closeCamera}
+                type="button"
+                className="bg-gray-600 hover:bg-gray-700 px-3 py-1 rounded text-white text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col justify-center items-center w-full h-full gap-2 p-2">
+            <p className="text-xs text-gray-500 text-center">
+              Drop image here or
+            </p>
+            <div className="flex flex-col gap-1 w-full">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
+                className="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded text-white text-xs w-full"
+              >
+                Choose File
+              </button>
+              <button
+                onClick={handleCamera}
+                type="button"
+                className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white text-xs w-full"
+              >
+                📷 Camera
+              </button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileSelect(file);
+              }}
+              className="hidden"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function formatAttrValue(value: any, key: string) {
   if (value && typeof value === "object") {
@@ -98,6 +320,10 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
     return /lookup/i.test(field);
   }
 
+  function isImageField(field: string) {
+    return /image/i.test(field);
+  }
+
   return (
     <div className="mb-4">
       <div className="flex gap-2 mb-2">
@@ -155,6 +381,11 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                           ? lookupValueMap[lookupId]
                           : undefined;
                         value = lookupValue ?? "";
+                      } else if (isImageField(desc.fieldName)) {
+                        const rawValue = selectedAttr[
+                          desc.fieldName as keyof PropertyAttribute
+                        ];
+                        value = typeof rawValue === "string" ? rawValue : "";
                       } else {
                         value = formatAttrValue(
                           selectedAttr[
@@ -175,9 +406,20 @@ function TabsPanel({ attributes, descriptors, selectedAttr }: TabsPanelProps) {
                             <span className="mb-1 font-semibold">
                               {desc.label}
                             </span>
-                            <span className="bg-gray-100 px-2 py-1 border rounded">
-                              {value}
-                            </span>
+                            {isImageField(desc.fieldName) && value ? (
+                              <div className="relative mt-1 h-32 w-full overflow-hidden rounded border bg-white">
+                                <Image
+                                  src={value}
+                                  alt={desc.label}
+                                  fill
+                                  className="object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <span className="bg-gray-100 px-2 py-1 border rounded">
+                                {value}
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-gray-300">&nbsp;</span>
@@ -306,7 +548,18 @@ function AddAttributePanel({
           .map((desc) => (
             <div key={desc.fieldName} className="flex flex-col mb-2">
               <label className="mb-1 font-medium text-sm">{desc.label}</label>
-              {isLookupField(desc.fieldName) ? (
+              {desc.inputType === "image" ? (
+                <ImageUploadField
+                  label={desc.label}
+                  imageData={newAttrValues[desc.fieldName]}
+                  onImageChange={(base64) =>
+                    setNewAttrValues({
+                      ...newAttrValues,
+                      [desc.fieldName]: base64 || "",
+                    })
+                  }
+                />
+              ) : isLookupField(desc.fieldName) ? (
                 <select
                   className="p-2 border rounded"
                   value={newAttrValues[desc.fieldName] || ""}
@@ -465,6 +718,7 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
 
   // Helper: infer input type from field name
   const inferInputType = (fieldName: string) => {
+    if (/image/i.test(fieldName)) return "image";
     if (/date/i.test(fieldName)) return "date";
     if (/email/i.test(fieldName)) return "email";
     if (/phone|tel/i.test(fieldName)) return "tel";
@@ -643,6 +897,9 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
       Boolean01: newAttrValues.Boolean01 ?? null,
       Boolean02: newAttrValues.Boolean02 ?? null,
       Boolean03: newAttrValues.Boolean03 ?? null,
+      Image01: newAttrValues.Image01 ?? null,
+      Image02: newAttrValues.Image02 ?? null,
+      Image03: newAttrValues.Image03 ?? null,
     };
 
     const response = await fetch("/property/api/insertPropertyAttribute", {

@@ -26,6 +26,13 @@ function parseUKDate(dateStr: string | null | undefined): Date | null {
   return isNaN(jsDate.getTime()) ? null : jsDate;
 }
 
+// Helper to convert base64 to buffer for varbinary storage
+function base64ToBuffer(base64: string | null): Buffer | null {
+  if (!base64) return null;
+  const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+  return Buffer.from(base64Data, 'base64');
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   console.log("InsertPropertyAttribute API called");
@@ -60,6 +67,9 @@ export async function POST(req: NextRequest) {
     request.input("Boolean01", sql.TinyInt, body.Boolean01 ?? null);
     request.input("Boolean02", sql.TinyInt, body.Boolean02 ?? null);
     request.input("Boolean03", sql.TinyInt, body.Boolean03 ?? null);
+    request.input("Image01", sql.VarBinary, base64ToBuffer(body.Image01));
+    request.input("Image02", sql.VarBinary, base64ToBuffer(body.Image02));
+    request.input("Image03", sql.VarBinary, base64ToBuffer(body.Image03));
     console.log(
       "Executing usp_InsertPropertyAttribute with inputs:",
       request.parameters
