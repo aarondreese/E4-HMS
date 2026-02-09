@@ -185,7 +185,7 @@ export default function CameraTestPage() {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white">
-                  Click "Start Camera" to begin
+                  Click &ldquo;Start Camera&rdquo; to begin
                 </div>
               )}
             </div>

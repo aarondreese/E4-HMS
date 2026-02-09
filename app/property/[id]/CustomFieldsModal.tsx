@@ -54,11 +54,11 @@ export default function CustomFieldsModal({
         // Initialize field values from existing data
         const initialValues: Record<number, any> = {};
         data.forEach((field: CustomFieldDefinition) => {
-          // Normalize boolean value: true/1 -> 1, false/0 -> 0, null/undefined -> null
-          let boolValue = field.CustomBoolean;
-          if (boolValue === true) boolValue = 1;
-          else if (boolValue === false) boolValue = 0;
-          else if (boolValue !== 1 && boolValue !== 0) boolValue = null;
+          // Normalize boolean value: ensure it's 1, 0, or null
+          let boolValue: number | null = field.CustomBoolean ?? null;
+          if (boolValue !== 1 && boolValue !== 0) {
+            boolValue = null;
+          }
           
           initialValues[field.ID] = {
             CustomDate: field.CustomDate,
