@@ -22,16 +22,14 @@ export async function GET(request: NextRequest) {
 // POST: Add a new attribute group
 export async function POST(request: NextRequest) {
   try {
-    const { Name, Description } = await request.json();
-    // Call stored procedure
+    const { Name } = await request.json();
     const result = await query(
-      'EXEC AddAttributeGroup @Name, @Description',
+      'INSERT INTO AttributeGroup (Name, isActive) OUTPUT INSERTED.ID VALUES (@Name, 1)',
       [
-        { name: 'Name', value: Name },
-        { name: 'Description', value: Description }
+        { name: 'Name', value: Name }
       ]
     );
-    return NextResponse.json({ AttributeGroupID: result.recordset[0].AttributeGroupID });
+    return NextResponse.json({ id: result.recordset[0].ID });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }

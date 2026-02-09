@@ -46,6 +46,9 @@ export interface PropertyAttribute {
   Boolean01?: number;
   Boolean02?: number;
   Boolean03?: number;
+  Image01?: string | null; // base64 string from varbinary(max)
+  Image02?: string | null; // base64 string from varbinary(max)
+  Image03?: string | null; // base64 string from varbinary(max)
   Name?: string;
 }
 

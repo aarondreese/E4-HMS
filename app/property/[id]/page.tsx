@@ -3,6 +3,7 @@ import Link from "next/link";
 import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { PropertyAttribute, PropertyDetails } from "@/types";
+import CustomFieldsModal from "./CustomFieldsModal";
 
 // Image Upload Field Component for Property Attributes
 function ImageUploadField({
@@ -471,6 +472,11 @@ function AddAttributePanel({
     return /^int\d+$/i.test(fieldName);
   };
 
+  // Helper: check if field is a boolean field
+  const isBooleanField = (desc: any) => {
+    return desc.inputType === "boolean" || /boolean/i.test(desc.fieldName);
+  };
+
   // Fetch lookup groups and lookups
   React.useEffect(() => {
     fetch("/lookup/api/lookupGroup")
@@ -616,6 +622,27 @@ function AddAttributePanel({
                     })
                   }
                 />
+              ) : isBooleanField(desc) ? (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={newAttrValues[desc.fieldName] === "1" || newAttrValues[desc.fieldName] === "true"}
+                      onChange={(e) => {
+                        setNewAttrValues({
+                          ...newAttrValues,
+                          [desc.fieldName]: e.target.checked ? "1" : "0",
+                        });
+                      }}
+                    />
+                    <div className="peer w-11 h-6 bg-gray-300 rounded-full peer-checked:bg-green-600 peer-focus:ring-2 peer-focus:ring-green-300 transition-colors"></div>
+                    <div className="peer-checked:translate-x-full absolute top-0.5 left-0.5 bg-white rounded-full border border-gray-300 w-5 h-5 transition-transform"></div>
+                  </div>
+                  <span className="text-sm text-gray-700">
+                    {newAttrValues[desc.fieldName] === "1" || newAttrValues[desc.fieldName] === "true" ? "Yes" : "No"}
+                  </span>
+                </label>
               ) : desc.inputType === "date" ? (
                 <input
                   type="date"
@@ -731,6 +758,7 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
   // Helper: infer input type from field name
   const inferInputType = (fieldName: string) => {
     if (/image/i.test(fieldName)) return "image";
+    if (/boolean/i.test(fieldName)) return "boolean";
     if (/date/i.test(fieldName)) return "date";
     if (/email/i.test(fieldName)) return "email";
     if (/phone|tel/i.test(fieldName)) return "tel";
@@ -798,6 +826,7 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
   const [attributeDescriptors, setAttributeDescriptors] = useState<any[]>([]);
   const [selectedAttrId, setSelectedAttrId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCustomFieldsModal, setShowCustomFieldsModal] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -1062,6 +1091,16 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
             );
           })()}
 
+          {/* Custom Fields Button */}
+          <div className="mb-6">
+            <button
+              onClick={() => setShowCustomFieldsModal(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 shadow px-6 py-3 rounded-lg font-semibold text-white transition"
+            >
+              📋 Manage Custom Fields
+            </button>
+          </div>
+
           {/* Hierarchy Section */}
           <div className="mb-6">
             <h2 className="mb-2 font-semibold text-lg">Hierarchy</h2>
@@ -1318,6 +1357,15 @@ const PropertyPage = ({ params }: PropertyPageProps) => {
           </div>
         </div>
       </div>
+
+      {/* Custom Fields Modal */}
+      {property && (
+        <CustomFieldsModal
+          propertyId={property.PropertyID}
+          isOpen={showCustomFieldsModal}
+          onClose={() => setShowCustomFieldsModal(false)}
+        />
+      )}
     </div>
   );
 };

@@ -1,18 +1,59 @@
+'use client';
+
 import { AttributeGroup } from "@/types";
-import { query } from "@/lib/db";
+import { useState, useEffect } from "react";
 
-async function getAttributeGroups(): Promise<AttributeGroup[]> {
-  try {
-    const result = await query("SELECT * FROM AttributeGroup");
-    return result.recordset as AttributeGroup[];
-  } catch (error) {
-    console.error("Failed to fetch attribute groups:", error);
-    throw new Error("Failed to fetch attribute groups");
+export default function AttributeGroupPage() {
+  const [groups, setGroups] = useState<AttributeGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  async function fetchGroups() {
+    try {
+      setLoading(true);
+      const res = await fetch('/AttributeGroup/api');
+      if (!res.ok) throw new Error('Failed to fetch attribute groups');
+      const data = await res.json();
+      setGroups(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
-export default async function AttributeGroupPage() {
-  const groups = await getAttributeGroups();
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const Name = formData.get('Name') as string;
+
+    try {
+      const res = await fetch('/AttributeGroup/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Name })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to add attribute group');
+      }
+
+      // Clear form and refresh list
+      e.currentTarget.reset();
+      await fetchGroups();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to add attribute group');
+    }
+  }
+
+  if (loading) return <div className="mx-auto p-4 max-w-2xl">Loading...</div>;
+  if (error) return <div className="mx-auto p-4 max-w-2xl text-red-600">Error: {error}</div>;
+
   return (
     <div className="mx-auto p-4 max-w-2xl">
       <h1 className="mb-4 font-bold text-2xl">Attribute Groups</h1>
@@ -48,7 +89,7 @@ export default async function AttributeGroupPage() {
           ))}
         </tbody>
       </table>
-      <form method="post" action="/AttributeGroup/api" className="mb-4">
+      <form onSubmit={handleSubmit} className="mb-4">
         <h2 className="mb-2 font-semibold">Add New Attribute Group</h2>
         <input
           name="Name"

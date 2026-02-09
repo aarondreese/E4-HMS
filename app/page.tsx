@@ -24,6 +24,12 @@ export default function Home() {
           Attribute Groups
         </a>
         <a
+          href="/PropertyCustomField"
+          className="bg-indigo-600 hover:bg-indigo-700 shadow px-6 py-4 rounded text-white text-lg text-center"
+        >
+          Property Custom Fields
+        </a>
+        <a
           href="/lookup"
           className="bg-yellow-600 hover:bg-yellow-700 shadow px-6 py-4 rounded text-white text-lg text-center"
         >
